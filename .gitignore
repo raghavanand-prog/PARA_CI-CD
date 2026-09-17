@@ -1,0 +1,39 @@
+# Node
+node_modules/
+npm-debug.log*
+coverage/
+
+# Env
+.env
+.env.*.local
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+.terraform.lock.hcl
+terraform.tfvars
+
+# Security scan output (generated at CI/scan time, not committed)
+security/reports/sast/*
+security/reports/dependencies/*
+security/reports/secrets/*
+security/reports/iac/*
+security/reports/container/*
+security/reports/summary/*
+!security/reports/**/.gitkeep
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Docker
+*.tar
+
+# SBOM output
+sbom/*.json
