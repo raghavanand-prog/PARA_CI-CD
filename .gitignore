@@ -37,3 +37,9 @@ security/reports/summary/*
 
 # SBOM output
 sbom/*.json
+
+# Generated test-run output inside the gate-engine test fixtures (each run
+# writes a fresh summary with a new timestamp) — the fixtures themselves
+# (pass/, fail_*/) are inputs and stay tracked; only their summary/ output
+# is regenerated and ignored.
+tests/security/fixtures/*/summary/
