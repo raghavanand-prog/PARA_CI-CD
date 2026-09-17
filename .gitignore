@@ -32,6 +32,9 @@ security/reports/summary/*
 .vscode/
 .idea/
 
+# Vercel
+.vercel/
+
 # Docker
 *.tar
 
