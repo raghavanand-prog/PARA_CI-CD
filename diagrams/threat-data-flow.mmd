@@ -1,0 +1,32 @@
+flowchart LR
+    subgraph Untrusted
+        Attacker[Attacker]
+        PublicInternet[Public Internet]
+    end
+
+    subgraph TrustBoundary1["Trust boundary: internet -> ALB"]
+        ALB[ALB]
+    end
+
+    subgraph TrustBoundary2["Trust boundary: ALB -> private subnet"]
+        ECS[ECS Task]
+    end
+
+    subgraph TrustBoundary3["Trust boundary: CI/CD -> AWS account"]
+        GH[GitHub source]
+        CB[CodeBuild]
+        Gate{{Security Gate}}
+    end
+
+    Attacker -->|1. HTTP requests| PublicInternet --> ALB
+    ALB -->|2. forwarded, TLS terminated| ECS
+    ECS -->|3. reads secret at startup| SM[(Secrets Manager)]
+
+    GH -->|4. source code, untrusted until scanned| CB
+    CB -->|5. scans + gate decision| Gate
+    Gate -->|6. PASS only| ECR[(ECR)]
+    ECR -->|7. pulled by ECS agent, IAM-scoped| ECS
+
+    style TrustBoundary1 stroke-dasharray: 4 4
+    style TrustBoundary2 stroke-dasharray: 4 4
+    style TrustBoundary3 stroke-dasharray: 4 4

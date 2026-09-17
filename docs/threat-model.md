@@ -1,0 +1,67 @@
+# Threat Model (STRIDE)
+
+Scope: the application, its CI/CD pipeline, and the AWS infrastructure
+described in this repository. Likelihood is stated qualitatively
+(Low/Medium/High) — no quantitative claim is made without measured data,
+consistent with [`research-notes.md`](./research-notes.md).
+
+Legend: **S**poofing, **T**ampering, **R**epudiation, **I**nformation
+disclosure, **D**enial of service, **E**levation of privilege.
+
+| # | STRIDE | Threat | Attack Vector | Affected Component | Impact | Likelihood | Existing Control | Mitigation | Residual Risk |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | T, E | Vulnerable dependency exploited | Attacker exploits a known CVE in an npm package pulled into the app image | `app/` dependencies, running container | RCE, data exposure | Medium | npm audit + OWASP Dependency-Check run every build; gate blocks on any CRITICAL/HIGH | `security/scripts/run-dependency-scan.sh`, policy thresholds in `security/policy/security-policy.yaml` | Low — zero-day in a dependency before a CVE/advisory exists is not caught until the next scan run |
+| 2 | I | Leaked credential in source or git history | Developer commits an API key / password; history is not rewritten | GitHub repo, any downstream consumer of the clone | Full account/service compromise depending on the credential | Medium | Gitleaks scans full history + working tree every build; zero-tolerance gate rule | `security/scripts/run-secret-scan.sh`, `secrets.block_on_any_finding: true` | Low-Medium — a secret merged and then reverted in the *same* commit range still triggers detection; a secret that was already exfiltrated before detection still needs rotation, which scanning alone doesn't do |
+| 3 | T, E | Malicious commit / compromised contributor pushes backdoored code | Insider or compromised developer account pushes code that adds a backdoor, disables auth, or opens a reverse shell | Application source, running container | Full compromise of the running service | Low-Medium | Semgrep SAST scans every build for known-bad patterns; branch protection (recommended, configured outside this repo) requires the gate to pass before merge | `security/scripts/run-sast.sh`, `.github/workflows/security-gate.yml` as a required status check | Medium — SAST catches known patterns, not all logic bombs or novel backdoors; code review remains necessary and is not automatable away |
+| 4 | T | Vulnerable/malicious base image or OS package in the container | A CVE in `node:20-alpine` or an OS package pulled in at build time | `app/Dockerfile`, built image | Container escape, RCE | Medium | Trivy scans the built image every build; ECR scan-on-push as a second, independent check; gate blocks on CRITICAL/HIGH | `security/scripts/run-container-scan.sh`, `terraform/modules/ecr` (`image_scanning_configuration`) | Low-Medium — a base image can go from "clean" to "vulnerable" the moment a new CVE is published against an already-deployed tag; this is mitigated by scan-on-push at rest, not just at build time, but nothing here auto-redeploys on a newly-discovered CVE in an already-running image |
+| 5 | T | Insecure Terraform introduces a misconfiguration (open SG, public bucket, unencrypted resource) | A future change to `terraform/` accidentally widens a security group, disables encryption, or makes a bucket public | AWS account, all resources | Broadened attack surface, potential data exposure | Medium | Checkov scans `terraform/` every build; gate blocks on CRITICAL/HIGH | `security/scripts/run-iac-scan.sh`, `.github/workflows/terraform-validate.yml` | Low — a check that Checkov's ruleset doesn't cover, or a misconfiguration expressed outside Terraform (manual console change), is not caught |
+| 6 | E, T | Compromised build environment (CodeBuild) | Attacker gains code execution inside a CodeBuild job (e.g. via a compromised build-time dependency) and pivots using the CodeBuild role's permissions | CodeBuild, everything the CodeBuild IAM role can reach | Image tampering, credential/secret theft, lateral movement | Low-Medium | CodeBuild IAM role is scoped to exactly one ECR repo, one S3 artifact prefix, one KMS key, and read-only access to one secret; privileged mode is required only for `docker build` and is not itself an IAM privilege | `terraform/modules/iam` (`aws_iam_role_policy.codebuild`) | Medium — privileged-mode Docker execution is an inherent risk of any container-building CI job; least-privilege IAM limits blast radius but does not eliminate it. Using CodeBuild's rootless/Kaniko-style builders is a documented future improvement (README) |
+| 7 | E | Excessive/over-broad IAM permissions on any role | A role is granted more than it needs, so a partial compromise (e.g. one Lambda, one task) grants more reach than necessary | All IAM roles | Amplified blast radius of any other compromise | Medium | Every role in `terraform/modules/iam` is single-purpose, every statement is commented with why it exists, wildcards are used only where AWS mandates it (`ecr:GetAuthorizationToken`, `cloudwatch:PutMetricData`) and documented as such | `terraform/modules/iam/main.tf` | Low — residual risk is drift over time as the app grows and someone adds a broad permission under deadline pressure without updating the comments; IaC review (Checkov + code review) mitigates but doesn't eliminate this |
+| 8 | T | Supply-chain attack via a compromised upstream dependency, base image, or scanner tool itself | A widely-used npm package, Docker base image, or even a security tool (e.g. a compromised Semgrep rule pack) is tampered with upstream | `app/`, `app/Dockerfile`, CI tooling | Wide-reaching compromise across many consumers, not just this project | Low | Lockfile pins exact dependency versions (`package-lock.json`); base image is pinned to a specific tag family (`node:20-alpine`); see the dedicated Supply Chain section below | `app/package-lock.json`, `app/Dockerfile`, `ci/scripts/generate-sbom.sh` | Medium — this is an industry-wide, largely unsolved problem; SBOM generation and digest pinning reduce risk and improve detection/response time but do not prevent a sufficiently well-executed upstream compromise |
+| 9 | T | Artifact tampering between Build and Deploy | An attacker with write access to the S3 artifact bucket or the ECR repo swaps the image between the gate's PASS decision and ECS pulling it | S3 artifact bucket, ECR repository, ECS task | Deployment of an unscanned/malicious image despite the gate passing | Low | ECR tags are immutable; `imagedefinitions.json` is generated from the digest of the exact image just pushed (not a mutable tag), so the Deploy stage pins to a specific content hash; S3 bucket blocks all public access and is encrypted | `terraform/modules/ecr` (`image_tag_mutability = "IMMUTABLE"`), `ci/scripts/push-image.sh` (digest resolution) | Low — residual risk is limited to an attacker who already has write access to the artifact bucket or ECR, which IAM restricts to the CodeBuild/CodePipeline roles specifically |
+| 10 | E, S | Unauthorized deployment bypassing the gate | Someone tries to push directly to ECS or start a pipeline execution using stale/hand-crafted artifacts, skipping CodeBuild entirely | ECS service, CodePipeline | Deployment of unscanned code | Low | The CodePipeline role's `iam:PassRole` is scoped and conditioned on `PassedToService=ecs-tasks.amazonaws.com`; only the CodePipeline/CodeBuild roles can call `ecs:UpdateService`/`RegisterTaskDefinition` for this cluster; a human with broader IAM permissions in the account could still do this manually | `terraform/modules/iam` | Medium — this is fundamentally an AWS account-level IAM boundary problem; least-privilege roles reduce who *can* do this, but do not prevent an account administrator (by definition) from bypassing any control |
+| 11 | R, E | Insider threat (developer or operator with legitimate access misuses it) | A developer with valid AWS console/CLI access modifies infrastructure or data outside the pipeline | AWS account | Data exposure, service disruption, or deliberate backdoor insertion | Low | CloudTrail (not deployed in this demo, documented as a future improvement) would provide an audit trail; IAM least privilege limits what any single set of credentials can do | Recommend enabling AWS CloudTrail + Config in any real deployment (see README "Future Improvements") | Medium — this repository does not deploy CloudTrail/Config by default (kept out of scope to keep the demo AWS-cost-minimal); this is the single largest documented gap relative to a production-grade deployment |
+| 12 | T, E | Pipeline bypass (someone disables or routes around the security gate) | A developer with repo write access edits `ci/buildspec.yml` or `security-policy.yaml` to remove/weaken the gate, then pushes | GitHub repo, CI/CD pipeline definition | Any subsequent deploy skips real enforcement | Low-Medium | The pipeline definition and the policy file are both under version control and subject to the same PR/branch-protection process as application code; the GitHub Actions mirror workflow independently re-runs the same gate against every PR, so a change to `buildspec.yml` alone doesn't silently disable GitHub-side enforcement too | `.github/workflows/security-gate.yml`, branch protection (configured in repo settings, see `deployment.md`) | Medium — a sufficiently privileged actor can still edit both the CodeBuild buildspec and the GitHub workflow in the same PR; code review is the actual control here, not a technical one this repo can enforce by itself |
+| 13 | T, I | Compromised running container (post-deploy) | An attacker exploits a runtime vulnerability (e.g. a 0-day in a dependency) after the image has already passed the gate and is running | ECS task | RCE inside the container, potential lateral movement via the task role | Low-Medium | `readonlyRootFilesystem: true` limits post-compromise persistence/tampering; the ECS task role is minimal (only `cloudwatch:PutMetricData`, scoped by namespace); the task has no direct inbound access except via the ALB | `terraform/modules/ecs` (`readonlyRootFilesystem`), `terraform/modules/iam` (`aws_iam_role_policy.ecs_task`) | Medium — build-time scanning cannot catch a vulnerability that didn't exist yet at scan time; this is why `ecr_lifecycle_policy` + periodic re-scans and prompt patching matter operationally, not just at build time |
+| 14 | I | Improper secrets handling (secret ends up in logs, env dump, or error response) | A stack trace, debug log, or verbose error response leaks `JWT_SECRET` or a password | Application logs (CloudWatch), API responses | Credential compromise | Low | `app/src/utils/logger.js` redacts password/token/secret fields by pattern; centralized error handler never returns stack traces or raw error objects to the client; secrets are injected as env vars at runtime, never written to disk or checked into source | `app/src/utils/logger.js`, `app/src/middleware/errorHandler.js` | Low — residual risk is a future code change that logs a full object without going through the existing logger redaction (e.g. `console.log(req.body)`); ESLint's `no-console` warning rule and code review are the mitigations for that specific case |
+
+## Supply chain — dedicated section
+
+Supply-chain risk (threat #8 above) deserves more than one row because it
+spans the whole toolchain, not just the application:
+
+- **SBOM (Software Bill of Materials).** `ci/scripts/generate-sbom.sh` runs
+  Syft (when available) against the built image and emits both CycloneDX
+  and SPDX SBOMs. This is currently informational/best-effort (not a gate
+  input) — see [`research-notes.md`](./research-notes.md) for why turning
+  "new component appeared with no corresponding SBOM diff review" into a
+  gate rule is future work rather than implemented today.
+- **Digest pinning.** `ci/scripts/push-image.sh` resolves the pushed
+  image's content digest and writes that (not the mutable tag) into
+  `imagedefinitions.json`, so the Deploy stage always deploys the exact
+  bytes the gate evaluated — a tag can be reused by an attacker with
+  registry write access, a digest cannot.
+- **Lockfiles.** `app/package-lock.json` pins exact dependency versions
+  and their transitive tree; `npm ci` (used in `ci/buildspec.yml` and
+  `.github/workflows/security-gate.yml`) fails if the lockfile and
+  `package.json` are out of sync, rather than silently re-resolving
+  versions.
+- **Provenance.** Not currently implemented: this project does not sign
+  images (e.g. with Sigstore/cosign) or attach SLSA provenance
+  attestations. This is the most significant supply-chain gap relative to
+  a production-grade deployment and is listed as a concrete future
+  improvement in the README rather than glossed over.
+- **Base image.** Pinned to the `node:20-alpine` tag family rather than
+  `latest`; Trivy and ECR scan-on-push both re-check it, since a pinned tag
+  can still receive a newly-disclosed CVE against packages already baked
+  into it.
+
+## What this threat model deliberately does not claim
+
+This is a design-time analysis backed by the controls actually implemented
+in this repository. It is not a substitute for a professional penetration
+test, and it does not claim any specific measured detection rate or
+response time — those require the methodology in
+[`research-notes.md`](./research-notes.md) run against real attack
+scenarios, which this repository sets up but does not fabricate results
+for.

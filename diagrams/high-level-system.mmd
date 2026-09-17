@@ -1,0 +1,21 @@
+flowchart LR
+    Dev[Developer] -->|git push| GH[(GitHub Repository)]
+    GH -->|webhook via CodeStar Connection| CP[AWS CodePipeline]
+
+    subgraph AWS["AWS Account"]
+        CP --> CB[AWS CodeBuild]
+        CB -->|scan reports + gate decision| Gate{{Security Gate}}
+        Gate -->|PASS| ECR[(Amazon ECR)]
+        Gate -->|FAIL| Stop[["Pipeline stops.\nECS never touched."]]
+        ECR --> ECS[ECS Fargate Service]
+        ALB[Application Load Balancer] --> ECS
+        ECS --> CW[CloudWatch Logs & Alarms]
+        CB --> CW
+        CP --> CW
+        SM[Secrets Manager / SSM] -.->|resolved at container startup| ECS
+        KMS[KMS CMK] -.->|encrypts| ECR
+        KMS -.->|encrypts| SM
+        KMS -.->|encrypts| CW
+    end
+
+    User[End User] -->|HTTPS| ALB

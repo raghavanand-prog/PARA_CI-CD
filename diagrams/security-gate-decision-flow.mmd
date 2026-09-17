@@ -1,0 +1,18 @@
+flowchart TD
+    Start([security-gate.sh starts]) --> LoadPolicy[Load security-policy.yaml]
+    LoadPolicy -->|invalid YAML / missing sections| AbortHard[["exit 3\nGate cannot run"]]
+    LoadPolicy -->|valid| ForEach[For each category:\nSAST, Deps, Secrets, IaC, Container]
+
+    ForEach --> CheckReport{Report file exists,\nis valid JSON,\nstatus == completed?}
+    CheckReport -->|No| FailClosed[["Category = FAIL\n(fail-closed)"]]
+    CheckReport -->|Yes| CheckThreshold{Findings within\npolicy thresholds?}
+    CheckThreshold -->|No| FailViolation[["Category = FAIL\n(threshold violated)"]]
+    CheckThreshold -->|Yes| Pass[["Category = PASS"]]
+
+    FailClosed --> Aggregate
+    FailViolation --> Aggregate
+    Pass --> Aggregate[Aggregate all category results]
+
+    Aggregate --> AnyFail{Any category FAIL?}
+    AnyFail -->|Yes| Overall[["OVERALL RESULT: FAIL\nexit 1 — deployment blocked"]]
+    AnyFail -->|No| OverallPass[["OVERALL RESULT: PASS\nexit 0 — deployment proceeds"]]
