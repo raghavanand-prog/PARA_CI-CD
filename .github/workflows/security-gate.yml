@@ -67,7 +67,14 @@ jobs:
       - name: Install security scanners
         run: |
           pip install --quiet semgrep checkov
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh -s -- -b /usr/local/bin
+          # gitleaks does not ship a scripts/install.sh convenience installer
+          # (unlike trivy below) — install the latest linux_x64 release
+          # binary directly from GitHub Releases instead.
+          GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | jq -r '.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url')
+          curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          chmod +x /usr/local/bin/gitleaks
           curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Run SAST (Semgrep)

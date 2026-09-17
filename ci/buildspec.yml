@@ -27,7 +27,7 @@ phases:
       - cd app && npm ci && cd -
       - echo "== install: security scanners (best-effort; scripts fail loudly, not silently, if a tool is missing) =="
       - pip install --quiet semgrep checkov || echo "WARNING: pip install of semgrep/checkov failed; run-sast.sh/run-iac-scan.sh will report tool_missing"
-      - (curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: gitleaks install failed"
+      - (GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r '.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url') && curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod +x /usr/local/bin/gitleaks) || echo "WARNING: gitleaks install failed"
       - (curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: trivy install failed"
       - (curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: syft install failed"
 

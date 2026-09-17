@@ -19,7 +19,12 @@ brew install dependency-check
 
 # Gitleaks (secret scanning)
 brew install gitleaks
-# or: curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh -s -- -b /usr/local/bin
+# or (Linux): gitleaks does not ship a scripts/install.sh convenience
+# installer (unlike trivy) — download the latest release binary directly:
+#   GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+#     | jq -r '.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url')
+#   curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz
+#   tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod +x /usr/local/bin/gitleaks
 
 # Checkov (IaC scanning)
 pip install checkov

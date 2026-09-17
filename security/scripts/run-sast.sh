@@ -68,7 +68,7 @@ fi
 COUNTS=$(jq '
   {
     critical: ([.results[]? | select(.extra.severity=="ERROR" and ((.extra.metadata.confidence // "") == "HIGH" or (.extra.metadata.cwe // null) != null))] | length),
-    high: ([.results[]? | select(.extra.severity=="ERROR")] | length) - ([.results[]? | select(.extra.severity=="ERROR" and ((.extra.metadata.confidence // "") == "HIGH" or (.extra.metadata.cwe // null) != null))] | length),
+    high: (([.results[]? | select(.extra.severity=="ERROR")] | length) - ([.results[]? | select(.extra.severity=="ERROR" and ((.extra.metadata.confidence // "") == "HIGH" or (.extra.metadata.cwe // null) != null))] | length)),
     medium: ([.results[]? | select(.extra.severity=="WARNING")] | length),
     low: ([.results[]? | select(.extra.severity=="INFO")] | length)
   }' "$RAW_FILE")
