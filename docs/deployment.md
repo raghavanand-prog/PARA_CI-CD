@@ -291,3 +291,60 @@ This maps 1:1 to the automated version of the same checks in
 actually runs on every change to `security/scripts/security-gate.sh` — the
 manual walkthrough above is for a live demo audience, the automated one is
 what keeps the gate correct over time.
+
+## 11. Vercel live API demo (supplementary — not the CI/CD pipeline)
+
+`app/` can additionally be deployed to Vercel as a standalone, publicly
+reachable copy of the REST API only. This exists purely so the API can be
+poked at without standing up AWS infrastructure first. **It is not part of
+this project's security-gate pipeline** — no Semgrep/Trivy/Checkov/
+security-gate.sh runs as part of a Vercel build, and there is no
+CodePipeline/CodeBuild/ECS/Terraform involved. Section 4 above (Terraform
+→ ECS Fargate, gated by CodeBuild) remains the only deployment path this
+project's DevSecOps pipeline actually exercises.
+
+### What makes this work
+
+- `app/api/index.js` — a thin adapter that calls the same `createApp()`
+  factory `app/src/server.js` uses locally/on ECS, exported directly as
+  the Vercel serverless function handler (Vercel's Node runtime accepts
+  an Express app instance as a request handler).
+- `app/vercel.json` — rewrites every request path to that one function,
+  and sets the handful of runtime env vars (`JWT_SECRET`, `JWT_ISSUER`,
+  rate-limit thresholds, log level) the app's `src/config/index.js`
+  requires to start. The `JWT_SECRET` value there is a clearly-labeled
+  public placeholder (`vercel-demo-public-placeholder-not-a-real-secret-
+  do-not-reuse`) — committing it is safe specifically because it signs
+  tokens for a throwaway demo API with an in-memory user store, nothing
+  more. It is never reused for the AWS deployment, which gets its real
+  JWT secret from Secrets Manager (see `terraform/modules/security`).
+
+### Deploying it yourself
+
+```bash
+npm install -g vercel     # one-time
+cd app
+vercel login               # one-time browser auth
+vercel --prod
+```
+
+Accept the CLI defaults (project root `./`, Node.js auto-detected, no
+custom build/output directory needed — this is a serverless function, not
+a static build). It prints a production URL on success; verify with:
+
+```bash
+curl https://<your-deployment-url>/health
+# expect: {"status":"ok", ...}
+```
+
+### Known limitation of this deployment specifically
+
+`app/src/models/userStore.js` is an in-memory `Map` (see its own header
+comment — this is intentional so the pipeline/gate demo stays focused, not
+an oversight). On ECS Fargate this still means state doesn't survive a
+task restart, but at least one long-lived container process holds it for
+its lifetime. On Vercel, each serverless invocation may run on a fresh
+cold-started instance with its own empty memory — a user registered in
+one invocation is not guaranteed to be found by `login` in the next. This
+is a demo-appropriate limitation, not a bug to fix here; a real deployment
+of this API (on either platform) would back `UserStore` with RDS/DynamoDB.

@@ -329,6 +329,13 @@ methodology against real pipeline executions.
   avoid the setup cost of a verified domain for a demo).
 - SBOM generation (Syft) is best-effort and currently informational, not a
   gate input.
+- In-memory user store (`app/src/models/userStore.js`) — no persistence
+  across process/task restarts, and unreliable across Vercel serverless
+  cold starts specifically (see [Live API demo](#live-api-demo-vercel)). A
+  real deployment would back it with RDS/DynamoDB.
+- No frontend/UI and no AI/ML component — this is a backend API plus its
+  surrounding CI/CD and security tooling only; the project's engineering
+  focus is deliberately the pipeline, not the application.
 
 ## Future improvements
 
@@ -352,6 +359,29 @@ the ECS service running behind the ALB, and the CloudWatch dashboard here
 once you've deployed this to your own AWS account — none are included in
 this repository since no live AWS deployment exists in the environment
 this project was built in._
+
+## Live API demo (Vercel)
+
+The `app/` REST API (health check, register, login, profile) can also run
+as a Vercel serverless deployment via `app/api/index.js` — a thin wrapper
+around the same `createApp()` factory used locally and on ECS Fargate, so
+routes/middleware/validation are identical. See `app/vercel.json` for the
+routing rewrite and demo-only runtime config, and
+[`docs/deployment.md`](docs/deployment.md#11-vercel-live-api-demo-supplementary-not-the-cicd-pipeline)
+for exact deploy steps.
+
+**Important:** this is a supplementary way to poke at the API only. It
+does **not** exercise this project's actual CI/CD security-gate pipeline —
+Vercel's build does not run Semgrep/Trivy/Checkov/security-gate.sh, and
+there is no ECS/CodePipeline/Terraform involved. The real, gated AWS
+deployment path is the one described throughout this README and
+`docs/deployment.md`. The Vercel deployment also uses an in-memory user
+store (see [Limitations](#limitations)), so registered users do not
+persist reliably across serverless cold starts.
+
+**Production URL:** _pending — to be added once deployed; see
+`docs/deployment.md` §11 for the exact `vercel` CLI steps to deploy it
+yourself from `app/`._
 
 ## Demo
 
