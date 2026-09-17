@@ -1,0 +1,109 @@
+name: Security Gate
+
+# Mirrors the same build -> scan -> gate pipeline defined in
+# ci/buildspec.yml (which AWS CodeBuild runs), so pull requests get the
+# identical enforcement locally on GitHub before anything ever reaches AWS.
+# A failing gate here blocks merge via required-status-check branch
+# protection (configure that in the repo's Settings -> Branches).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  gate-engine-selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run security-gate.sh test harness (fixture-based, no real scanners needed)
+        run: bash tests/security/run-tests.sh
+
+  security-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (full history, for accurate secret scanning)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Lint
+        working-directory: app
+        run: npm run lint
+
+      - name: Unit tests
+        working-directory: app
+        run: npm test
+
+      - name: Build Docker image
+        run: docker build -t secure-cicd-app:${{ github.sha }} ./app
+
+      - name: Set up Python (for Semgrep / Checkov)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install security scanners
+        run: |
+          pip install --quiet semgrep checkov
+          # gitleaks does not ship a scripts/install.sh convenience installer
+          # (unlike trivy below) — install the latest linux_x64 release
+          # binary directly from GitHub Releases instead.
+          GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | jq -r '.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url')
+          curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks
+          chmod +x /usr/local/bin/gitleaks
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run SAST (Semgrep)
+        run: bash security/scripts/run-sast.sh app/src
+        continue-on-error: true
+
+      - name: Run dependency scan (npm audit)
+        run: bash security/scripts/run-dependency-scan.sh app
+        continue-on-error: true
+
+      - name: Run secret scan (Gitleaks)
+        run: bash security/scripts/run-secret-scan.sh
+        continue-on-error: true
+
+      - name: Run IaC scan (Checkov)
+        run: bash security/scripts/run-iac-scan.sh terraform
+        continue-on-error: true
+
+      - name: Run container scan (Trivy)
+        run: bash security/scripts/run-container-scan.sh secure-cicd-app:${{ github.sha }}
+        continue-on-error: true
+
+      - name: Evaluate security gate
+        run: bash security/scripts/security-gate.sh
+
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: security/reports/
+          retention-days: 30

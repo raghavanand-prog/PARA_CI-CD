@@ -1,0 +1,1 @@
+{"scanner":"trivy","status":"completed","generated_at":"2026-01-01T00:00:00Z","findings":{"critical":2,"high":1,"medium":3,"low":5},"details":[{"id":"CVE-2024-0001","pkg":"openssl","severity":"CRITICAL"}]}

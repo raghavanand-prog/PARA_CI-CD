@@ -49,7 +49,14 @@ async function login(req, res, next) {
     const { email, password } = req.body;
     const user = userStore.findByEmail(email);
 
-    // Constant-shape response to avoid user-enumeration timing differences.
+    // Constant-shape response to avoid user-enumeration timing differences:
+    // always run bcrypt.compare against SOME hash, even for a nonexistent
+    // user, so response timing doesn't leak whether the email is registered.
+    // This is a fixed, publicly-known bcrypt hash of an arbitrary string —
+    // not a credential for any real account — so scanners that flag
+    // hardcoded-secret-shaped literals are a false positive here; removing
+    // it would reintroduce the timing side-channel it exists to prevent.
+    // nosemgrep
     const dummyHash = '$2a$12$CwTycUXWue0Thq9StjUM0uJ8yqYXt5rQmUxRlqrRtG3jsBb.i0K.C';
     const hashToCompare = user ? user.passwordHash : dummyHash;
     const passwordMatches = await bcrypt.compare(password, hashToCompare);

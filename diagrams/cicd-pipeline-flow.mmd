@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub
+    participant CP as CodePipeline
+    participant CB as CodeBuild
+    participant ECR as ECR
+    participant ECS as ECS Fargate
+
+    Dev->>GH: git push (main)
+    GH->>CP: Source stage triggers (CodeStar Connection)
+    CP->>CB: Build stage starts (ci/buildspec.yml)
+    CB->>CB: install deps, lint, unit tests
+    CB->>CB: docker build
+    CB->>CB: run SAST / SCA / secrets / IaC / container scans
+    CB->>CB: security-gate.sh evaluates all reports vs. policy
+    alt Gate PASS
+        CB->>ECR: docker push (digest-pinned)
+        CB->>CP: Build stage SUCCEEDED, imagedefinitions.json
+        CP->>ECS: Deploy stage — update service to new image
+        ECS-->>Dev: New revision running behind ALB
+    else Gate FAIL
+        CB->>CP: Build stage FAILED (non-zero exit)
+        CP-->>Dev: Pipeline stops — Deploy stage never runs
+    end

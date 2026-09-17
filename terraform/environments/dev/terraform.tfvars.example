@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (git-ignored) in this directory.
+project_name = "secure-cicd"
+aws_region   = "us-east-1"
+
+github_owner  = "REPLACE_WITH_YOUR_GITHUB_USERNAME_OR_ORG"
+github_repo   = "REPLACE_WITH_YOUR_REPO_NAME"
+github_branch = "main"
+
+codestar_connection_arn = "arn:aws:codeconnections:us-east-1:123456789012:connection/REPLACE_ME"
+
+log_retention_days       = 14
+alarm_notification_email = ""

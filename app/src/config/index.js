@@ -9,15 +9,19 @@
 require('dotenv').config();
 
 function required(name, fallback) {
-  const value = process.env[name] ?? fallback;
-  if (value === undefined || value === null || value === '') {
+  // Check the raw env var first, NOT `process.env[name] ?? fallback` — that
+  // would silently substitute `fallback` before this function ever gets a
+  // chance to decide whether that's actually allowed, defeating the
+  // fail-fast check below in every environment, not just tests.
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === '') {
     if (process.env.NODE_ENV === 'test') {
       // Tests provide their own safe defaults so the suite never needs real secrets.
       return fallback;
     }
     throw new Error(`Missing required environment variable: ${name}`);
   }
-  return value;
+  return raw;
 }
 
 const config = {
@@ -25,6 +29,11 @@ const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   awsRegion: process.env.AWS_REGION || 'us-east-1',
   jwt: {
+    // This literal is only ever returned by required() when NODE_ENV==='test'
+    // (see above) — outside tests, a missing JWT_SECRET throws instead of
+    // reaching this fallback. It is not a real secret and scanners flagging
+    // it as a hardcoded credential are a false positive.
+    // nosemgrep
     secret: required('JWT_SECRET', 'test-only-insecure-secret-do-not-use-in-prod'),
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     issuer: process.env.JWT_ISSUER || 'secure-aws-cicd-demo-api',
