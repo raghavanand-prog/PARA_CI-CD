@@ -17,6 +17,11 @@ resource "aws_codepipeline" "app" {
   artifact_store {
     location = var.artifact_bucket
     type     = "S3"
+
+    encryption_key {
+      id   = var.kms_key_arn
+      type = "KMS"
+    }
   }
 
   stage {

@@ -3,7 +3,10 @@
 ##########################
 # Stage 1: build deps    #
 ##########################
-FROM node:20-alpine AS deps
+# node:20-alpine's Node 20 LTS line has reached end-of-life (no further
+# security patches) — moved to node:22-alpine, an actively supported Node
+# LTS release, so the base image keeps receiving upstream OS/runtime patches.
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
@@ -11,7 +14,7 @@ RUN npm ci --omit=dev --ignore-scripts
 ##########################
 # Stage 2: runtime image #
 ##########################
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 
 # Security-relevant OS updates and minimal footprint.
 RUN apk update && apk upgrade --no-cache && apk add --no-cache dumb-init

@@ -92,9 +92,9 @@ variable "codestar_connection_arn" {
 }
 
 variable "log_retention_days" {
-  description = "CloudWatch Logs retention in days for application and build logs."
+  description = "CloudWatch Logs retention in days for application and build logs. Defaults to 365 (1 year) to meet baseline audit-log retention practice; CloudWatch Logs storage cost at this project's log volume is negligible."
   type        = number
-  default     = 30
+  default     = 365
 }
 
 variable "container_health_check_path" {

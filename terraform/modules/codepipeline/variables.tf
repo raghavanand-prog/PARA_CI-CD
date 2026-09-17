@@ -14,6 +14,11 @@ variable "artifact_bucket" {
   type = string
 }
 
+variable "kms_key_arn" {
+  description = "CMK used to encrypt the CodePipeline artifact store."
+  type        = string
+}
+
 variable "codestar_connection_arn" {
   type = string
 }

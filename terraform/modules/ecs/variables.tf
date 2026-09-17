@@ -26,6 +26,11 @@ variable "alb_security_group_id" {
   type = string
 }
 
+variable "access_logs_bucket" {
+  description = "S3 bucket ALB access logs are delivered to."
+  type        = string
+}
+
 variable "ecs_tasks_security_group_id" {
   type = string
 }

@@ -83,15 +83,34 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "arn:aws:codeconnections:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:connection/*"
       },
       {
-        Sid    = "EcsDeploy"
+        Sid    = "EcsDeployManageService"
         Effect = "Allow"
-        # The Deploy stage updates the ECS service to run the newly built,
-        # gate-approved image — nothing broader than describe/update is needed.
+        # Scoped to the exact ECS service this pipeline deploys (names are
+        # deterministic — see modules/ecs's local.name_prefix — so this ARN
+        # can be constructed without a dependency on the ecs module, which
+        # would otherwise create a cycle: iam -> ecs -> iam).
         Action = [
           "ecs:DescribeServices",
+          "ecs:UpdateService",
+        ]
+        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:service/${local.name_prefix}-cluster/${local.name_prefix}-app-service"
+      },
+      {
+        Sid    = "EcsDeployRegisterTaskDefinition"
+        Effect = "Allow"
+        # ecs:RegisterTaskDefinition and ecs:DescribeTaskDefinition do not
+        # support resource-level permissions in AWS's IAM policy language —
+        # the task definition ARN (with its revision number) does not exist
+        # until RegisterTaskDefinition succeeds, so AWS requires Resource:
+        # "*" for both (documented AWS API limitation, the same class of
+        # restriction as ecr:GetAuthorizationToken below). Every other
+        # action in this policy, including the rest of EcsDeploy above, is
+        # scoped to a specific resource ARN.
+        # checkov:skip=CKV_AWS_290:ecs:RegisterTaskDefinition/DescribeTaskDefinition cannot be scoped to a resource ARN — AWS API limitation, see inline comment. Every other statement in this policy is resource-scoped.
+        # checkov:skip=CKV_AWS_355:Same AWS API limitation as CKV_AWS_290 above — these two actions have no resource type to scope to.
+        Action = [
           "ecs:DescribeTaskDefinition",
           "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService",
         ]
         Resource = "*"
       },

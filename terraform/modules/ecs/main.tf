@@ -37,6 +37,9 @@ resource "aws_cloudwatch_log_group" "app" {
 # Application Load Balancer
 # ---------------------------------------------------------------------------
 resource "aws_lb" "app" {
+  # checkov:skip=CKV2_AWS_20:ALB intentionally serves plain HTTP in this demo/student-account deployment; no ACM certificate or custom domain is provisioned to avoid the cost/setup of a verified domain (see README Limitations). Enabling HTTPS/WAF is documented future work once a real domain is available.
+  # checkov:skip=CKV2_AWS_28:ALB intentionally serves plain HTTP in this demo/student-account deployment; no ACM certificate or custom domain is provisioned to avoid the cost/setup of a verified domain (see README Limitations). Enabling HTTPS/WAF is documented future work once a real domain is available.
+  # checkov:skip=CKV_AWS_150:Deletion protection is intentionally disabled in the dev environment so `terraform destroy` (documented in docs/deployment.md as the required cleanup step for a student AWS account) works without a manual override step.
   name               = "${local.name_prefix}-alb"
   internal           = false
   load_balancer_type = "application"
@@ -45,12 +48,19 @@ resource "aws_lb" "app" {
 
   drop_invalid_header_fields = true
 
+  access_logs {
+    bucket  = var.access_logs_bucket
+    prefix  = "alb"
+    enabled = true
+  }
+
   tags = {
     Name = "${local.name_prefix}-alb"
   }
 }
 
 resource "aws_lb_target_group" "app" {
+  # checkov:skip=CKV_AWS_378:ALB intentionally serves plain HTTP in this demo/student-account deployment; no ACM certificate or custom domain is provisioned to avoid the cost/setup of a verified domain (see README Limitations). Enabling HTTPS/WAF is documented future work once a real domain is available.
   name        = "${local.name_prefix}-tg"
   port        = var.container_port
   protocol    = "HTTP"
@@ -78,6 +88,8 @@ resource "aws_lb_target_group" "app" {
 # ACM certificate and redirect this listener's traffic to it; omitted here
 # to keep the demo deployable without a purchased/verified domain.
 resource "aws_lb_listener" "http" {
+  # checkov:skip=CKV_AWS_103:ALB intentionally serves plain HTTP in this demo/student-account deployment; no ACM certificate or custom domain is provisioned to avoid the cost/setup of a verified domain (see README Limitations). Enabling HTTPS/WAF is documented future work once a real domain is available.
+  # checkov:skip=CKV_AWS_2:ALB intentionally serves plain HTTP in this demo/student-account deployment; no ACM certificate or custom domain is provisioned to avoid the cost/setup of a verified domain (see README Limitations). Enabling HTTPS/WAF is documented future work once a real domain is available.
   load_balancer_arn = aws_lb.app.arn
   port              = 80
   protocol          = "HTTP"

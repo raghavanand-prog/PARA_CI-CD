@@ -25,3 +25,14 @@ variable "private_subnet_cidrs" {
 variable "container_port" {
   type = number
 }
+
+variable "kms_key_arn" {
+  description = "CMK used to encrypt the VPC flow log CloudWatch Logs group."
+  type        = string
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch Logs retention for VPC flow logs."
+  type        = number
+  default     = 30
+}

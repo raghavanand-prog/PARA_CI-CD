@@ -57,7 +57,7 @@ variable "codestar_connection_arn" {
 
 variable "log_retention_days" {
   type    = number
-  default = 14
+  default = 365
 }
 
 variable "alarm_notification_email" {

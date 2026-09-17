@@ -38,6 +38,11 @@ variable "codebuild_security_group_id" {
   type = string
 }
 
+variable "kms_key_arn" {
+  description = "CMK used to encrypt CodeBuild build output artifacts."
+  type        = string
+}
+
 variable "buildspec_path" {
   description = "Path (relative to the source repo root) to the buildspec CodeBuild runs."
   type        = string

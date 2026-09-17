@@ -9,10 +9,12 @@ locals {
 }
 
 resource "aws_codebuild_project" "app" {
-  name          = "${local.name_prefix}-build"
-  description   = "Builds, security-scans (SAST/SCA/secrets/IaC/container), gates, and pushes the app image"
-  service_role  = var.codebuild_role_arn
-  build_timeout = 30 # minutes; generous enough for full scan suite + docker build
+  # checkov:skip=CKV_AWS_316:Privileged mode is required for `docker build`/`docker push` inside CodeBuild (see ci/buildspec.yml); this is the standard, necessary trade-off for any CodeBuild project that builds container images.
+  name           = "${local.name_prefix}-build"
+  description    = "Builds, security-scans (SAST/SCA/secrets/IaC/container), gates, and pushes the app image"
+  service_role   = var.codebuild_role_arn
+  build_timeout  = 30              # minutes; generous enough for full scan suite + docker build
+  encryption_key = var.kms_key_arn # encrypts build output artifacts with the shared CMK
 
   artifacts {
     type = "CODEPIPELINE"
