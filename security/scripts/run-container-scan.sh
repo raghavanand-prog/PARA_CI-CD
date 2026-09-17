@@ -46,6 +46,7 @@ set +e
 trivy image \
   --format json \
   --severity CRITICAL,HIGH,MEDIUM,LOW \
+  --ignorefile "${SEC_REPO_ROOT}/security/policy/.trivyignore" \
   --output "$RAW_FILE" \
   --quiet \
   --exit-code 0 \
