@@ -1,0 +1,25 @@
+flowchart TB
+    subgraph VPC["VPC (10.20.0.0/16)"]
+        subgraph PublicAZ1["Public Subnet AZ-1"]
+            ALB1[ALB]
+            NAT[NAT Gateway]
+        end
+        subgraph PublicAZ2["Public Subnet AZ-2"]
+            ALB2[ALB]
+        end
+        subgraph PrivateAZ1["Private Subnet AZ-1"]
+            Task1[ECS Fargate Task]
+        end
+        subgraph PrivateAZ2["Private Subnet AZ-2"]
+            Task2[ECS Fargate Task]
+        end
+        IGW[Internet Gateway]
+    end
+
+    Internet((Internet)) --> IGW --> ALB1 & ALB2
+    ALB1 & ALB2 --> Task1 & Task2
+    Task1 & Task2 -.->|outbound only, via NAT| NAT --> IGW
+
+    Task1 & Task2 -.->|pull image| ECR[(ECR)]
+    Task1 & Task2 -.->|resolve secrets| SM[(Secrets Manager / SSM)]
+    Task1 & Task2 -.->|logs| CW[(CloudWatch Logs)]

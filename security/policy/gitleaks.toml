@@ -1,0 +1,32 @@
+title = "gitleaks config for secure-aws-cicd-devsecops"
+
+# Extends gitleaks' built-in default ruleset (AWS keys, generic API keys,
+# JWTs, private keys, etc.) rather than replacing it — this file only adds
+# a narrow, explicitly-justified allowlist on top. Do not add anything here
+# that isn't a genuinely fake, documented value; the gate's zero-tolerance
+# policy for secrets (security/policy/security-policy.yaml) still applies
+# to everything else in the repo.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentionally fake test/demo values, not real credentials"
+
+# All test files use a fixed, clearly-labeled fake JWT secret
+# (e.g. 'unit-test-secret-not-for-production') and fake test-user
+# passwords so the test suite is deterministic and needs no real secret.
+# See app/tests/unit/*.test.js and tests/integration/*.test.js.
+paths = [
+  '''app/tests/.*''',
+  '''tests/.*''',
+]
+
+# The intentional-vulnerability-demonstration walkthrough in
+# docs/deployment.md (section 10b) includes this fake AWS access key
+# literally in its example shell heredoc, specifically so a reader can
+# reproduce the secret-scanner gate catching it — it is never a real
+# credential and the file it instructs you to create (demo/) is untracked
+# and explicitly reverted with `rm -rf demo/` in the same section.
+regexes = [
+  '''AKIAFAKEDEMOSECRETKEYXXXX''',
+]

@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars (git-ignored) and fill in values for your own
+# AWS account and GitHub repository. Never commit the real terraform.tfvars.
+
+project_name = "secure-cicd"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+vpc_cidr             = "10.20.0.0/16"
+availability_zones   = ["us-east-1a", "us-east-1b"]
+public_subnet_cidrs  = ["10.20.0.0/24", "10.20.1.0/24"]
+private_subnet_cidrs = ["10.20.10.0/24", "10.20.11.0/24"]
+
+container_port               = 3000
+container_health_check_path  = "/health"
+
+# Small on purpose: fits comfortably in AWS Free Tier / a student account.
+ecs_task_cpu      = "256"
+ecs_task_memory   = "512"
+ecs_desired_count = 1
+
+# --- GitHub / CodePipeline source ------------------------------------------
+github_owner  = "REPLACE_WITH_YOUR_GITHUB_USERNAME_OR_ORG"
+github_repo   = "REPLACE_WITH_YOUR_REPO_NAME"
+github_branch = "main"
+
+# Create this once via AWS Console -> Developer Tools -> Settings ->
+# Connections -> Create connection (GitHub), complete the handshake there,
+# then paste its ARN here. Terraform cannot create/authorize this for you.
+codestar_connection_arn = "arn:aws:codeconnections:us-east-1:123456789012:connection/REPLACE_ME"
+
+log_retention_days       = 30
+alarm_notification_email = "" # set to your email to get SNS alarm notifications
