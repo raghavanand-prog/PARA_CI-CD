@@ -1,0 +1,85 @@
+# Security Gate Policy
+#
+# This file is the single source of truth for what "secure enough to deploy"
+# means for this pipeline. security-gate.sh reads it and evaluates every
+# scanner's report against these thresholds. Change the numbers here to
+# tune the gate — never hardcode thresholds inside scripts.
+#
+# Semantics: a threshold of 0 means "any finding at or above this severity
+# blocks the deployment". A threshold of N > 0 means "up to N findings at
+# this severity are tolerated" (useful for MEDIUM/LOW noise while a team
+# burns down a backlog). CRITICAL/HIGH/secrets are hard-blocked (0) by
+# default and are the values a reviewer should look at first.
+
+version: 1
+
+policy_name: "default-devsecops-gate"
+description: >
+  Baseline security gate for the secure-aws-cicd-devsecops pipeline.
+  Fails closed: any scanner that did not run, produced a malformed report,
+  or crashed is treated as a policy violation.
+
+# ---------------------------------------------------------------------------
+# Static Application Security Testing (Semgrep)
+# ---------------------------------------------------------------------------
+sast:
+  enabled: true
+  block_on_severity:
+    critical: 0    # any CRITICAL finding blocks
+    high: 0        # any HIGH finding blocks
+    medium: 10     # up to 10 MEDIUM findings tolerated
+    low: -1        # -1 = unlimited / not enforced
+
+# ---------------------------------------------------------------------------
+# Software Composition Analysis / dependency scanning (npm audit + OWASP DC)
+# ---------------------------------------------------------------------------
+dependencies:
+  enabled: true
+  block_on_severity:
+    critical: 0
+    high: 0
+    medium: 5
+    low: -1
+
+# ---------------------------------------------------------------------------
+# Secret scanning (Gitleaks)
+# ---------------------------------------------------------------------------
+secrets:
+  enabled: true
+  block_on_any_finding: true   # any verified/likely secret blocks, zero tolerance
+
+# ---------------------------------------------------------------------------
+# Infrastructure as Code scanning (Checkov against terraform/)
+# ---------------------------------------------------------------------------
+iac:
+  enabled: true
+  block_on_severity:
+    critical: 0
+    high: 0
+    medium: 15
+    low: -1
+
+# ---------------------------------------------------------------------------
+# Container image scanning (Trivy)
+# ---------------------------------------------------------------------------
+container:
+  enabled: true
+  block_on_severity:
+    critical: 0
+    high: 0
+    medium: 20
+    low: -1
+
+# ---------------------------------------------------------------------------
+# Global gate behavior
+# ---------------------------------------------------------------------------
+gate:
+  # If true, a scanner report that is missing, empty, or fails to parse as
+  # valid JSON causes the gate to FAIL rather than being skipped.
+  fail_closed_on_missing_report: true
+  # If true, a non-zero exit code from a scan script other than the
+  # documented "findings present" exit code is treated as a crash and fails
+  # the gate closed.
+  fail_closed_on_scanner_crash: true
+  # Where the machine-readable and human-readable summaries are written.
+  summary_dir: "security/reports/summary"

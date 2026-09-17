@@ -1,0 +1,15 @@
+==================================================================
+                    SECURITY GATE RESULT
+==================================================================
+CATEGORY                               STATUS     DETAIL
+------------------------------------------------------------------
+SAST (Semgrep)                         PASS       critical=0 high=0 medium=1 low=2
+Dependencies (npm audit / OWASP DC)    PASS       critical=0 high=0 medium=0 low=0
+Secrets (Gitleaks)                     PASS       secrets_found=0
+IaC (Checkov)                          PASS       critical=0 high=0 medium=2 low=1
+Container (Trivy)                      FAIL       critical=2 high=1 medium=3 low=5 | violations: critical 2>0,high 1>0
+------------------------------------------------------------------
+OVERALL RESULT: FAIL
+Evaluated at:   2026-09-17T09:20:40Z
+Policy file:    /home/user/PARA_CI-CD/security/policy/security-policy.yaml
+==================================================================
