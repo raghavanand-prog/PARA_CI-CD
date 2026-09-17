@@ -35,6 +35,7 @@ sec_info "Running gitleaks against ${SEC_REPO_ROOT}"
 set +e
 gitleaks detect \
   --source "$SEC_REPO_ROOT" \
+  --config "${SEC_REPO_ROOT}/security/policy/gitleaks.toml" \
   --report-format json \
   --report-path "$RAW_FILE" \
   --no-banner \
