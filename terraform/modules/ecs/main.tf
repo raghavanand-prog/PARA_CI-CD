@@ -151,8 +151,17 @@ resource "aws_ecs_task_definition" "app" {
 
       readonlyRootFilesystem = true
 
+      # Exec form ("CMD", not "CMD-SHELL"): the runtime image is
+      # gcr.io/distroless/nodejs22-debian12, which has no /bin/sh. ECS's
+      # CMD-SHELL variant always wraps the command in `sh -c "..."`
+      # regardless of what shell (if any) the image provides, so a
+      # CMD-SHELL health check against this image fails every attempt
+      # before node even starts — the container never gets marked healthy,
+      # and the ECS deployment circuit breaker eventually trips. CMD runs
+      # the argv list directly (node itself as argv[0]), which distroless's
+      # nodejs image supports natively.
       healthCheck = {
-        command     = ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:${var.container_port}/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+        command     = ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:${var.container_port}/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
         interval    = 30
         timeout     = 5
         retries     = 3
