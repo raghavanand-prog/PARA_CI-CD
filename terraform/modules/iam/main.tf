@@ -116,6 +116,25 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "*"
       },
       {
+        Sid    = "EcsDeployTagNewTaskDefinitionRevision"
+        Effect = "Allow"
+        # Not in AWS's documented reference policy above (that policy is
+        # apparently incomplete/outdated) — found via CloudTrail after two
+        # real pipeline failures against a live account both surfaced only
+        # CodePipeline's generic, unhelpful "PermissionError: The provided
+        # role does not have sufficient permissions to access ECS" with no
+        # indication of the specific rejected call. `aws cloudtrail
+        # lookup-events` on ecs.amazonaws.com showed the real denial:
+        # RegisterTaskDefinition itself succeeds, but CodePipeline then
+        # calls ecs:TagResource to propagate the existing task definition
+        # family's tags onto the new revision it just registered, and
+        # that action was never granted. Scoped to this one task
+        # definition family (the resource ARN CloudTrail's error message
+        # itself named), not "*".
+        Action   = ["ecs:TagResource"]
+        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task-definition/${local.name_prefix}-app:*"
+      },
+      {
         Sid    = "PassEcsRoles"
         Effect = "Allow"
         # ECS deploy actions must be able to pass the task execution/task
