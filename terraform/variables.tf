@@ -23,9 +23,9 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "Availability zones to spread subnets across."
+  description = "Availability zones to spread subnets across. Leave empty to auto-detect the first 2 available AZs in var.aws_region."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = []
 }
 
 variable "public_subnet_cidrs" {

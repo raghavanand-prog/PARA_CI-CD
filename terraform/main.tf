@@ -9,9 +9,21 @@
 
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
+
+  # var.availability_zones defaults to [] ("auto-detect"). A hardcoded
+  # default AZ list (e.g. us-east-1a/b) breaks in any other region — AZ
+  # names aren't portable across regions, and AWS rejects a subnet create
+  # for an AZ that doesn't exist in the account's chosen region. Falling
+  # back to the first 2 AZs the account actually has access to in this
+  # region keeps this deployable anywhere without per-region tfvars edits.
+  availability_zones = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 2)
 }
 
 data "aws_caller_identity" "current" {}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
 
 # ---------------------------------------------------------------------------
 # Shared security primitives (KMS key, JWT secret, SSM parameters)
@@ -32,7 +44,7 @@ module "networking" {
   project_name         = var.project_name
   environment          = var.environment
   vpc_cidr             = var.vpc_cidr
-  availability_zones   = var.availability_zones
+  availability_zones   = local.availability_zones
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   container_port       = var.container_port
