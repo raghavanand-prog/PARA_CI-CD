@@ -96,6 +96,29 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:service/${local.name_prefix}-cluster/${local.name_prefix}-app-service"
       },
       {
+        Sid    = "EcsDeployMonitorTasks"
+        Effect = "Allow"
+        # CodePipeline's native ECS deploy action doesn't just call
+        # UpdateService and stop — it polls task status afterward to
+        # determine whether the rollout actually succeeded, which needs
+        # these two read actions. Missing them causes the Deploy stage to
+        # fail outright with "PermissionError: The provided role does not
+        # have sufficient permissions to access ECS", found on a real
+        # pipeline run (ecs:DescribeServices/UpdateService alone were not
+        # enough). ecs:DescribeTasks is scoped to this cluster's tasks;
+        # ecs:ListTasks does not support resource-level permissions at all
+        # (documented AWS API limitation, same class as RegisterTaskDefinition
+        # above).
+        Action   = ["ecs:DescribeTasks"]
+        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${local.name_prefix}-cluster/*"
+      },
+      {
+        Sid      = "EcsDeployListTasks"
+        Effect   = "Allow"
+        Action   = ["ecs:ListTasks"]
+        Resource = "*"
+      },
+      {
         Sid    = "EcsDeployRegisterTaskDefinition"
         Effect = "Allow"
         # ecs:RegisterTaskDefinition and ecs:DescribeTaskDefinition do not
