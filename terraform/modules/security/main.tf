@@ -24,6 +24,15 @@ resource "aws_kms_key" "main" {
   # the way this statement does; every principal's actual usage is still
   # governed by its own least-privilege IAM policy (see modules/iam), this
   # key policy is only the administrative delegation layer.
+  #
+  # A second, separate statement grants the CloudWatch Logs service
+  # principal permission to use this key: unlike ordinary account
+  # principals, an AWS *service* (logs.amazonaws.com here) is not covered
+  # by the root-account delegation above — CloudWatch Logs assumes its own
+  # service context when creating a log group with a customer-managed KMS
+  # key, and AWS rejects `CreateLogGroup` with AccessDeniedException unless
+  # the key's own policy explicitly allows that service principal. Scoped
+  # via the EncryptionContext condition to only this account's log groups.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -36,6 +45,26 @@ resource "aws_kms_key" "main" {
         Action   = "kms:*"
         Resource = "*"
       },
+      {
+        Sid    = "AllowCloudWatchLogsServiceUsage"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+          }
+        }
+      },
     ]
   })
 
@@ -45,6 +74,7 @@ resource "aws_kms_key" "main" {
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 resource "aws_kms_alias" "main" {
   name          = "alias/${local.name_prefix}"
