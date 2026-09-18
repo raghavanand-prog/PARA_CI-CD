@@ -8,6 +8,18 @@
 # Required CodeBuild project environment variables (set by
 # terraform/modules/codebuild): ECR_REPOSITORY_URL, ECR_REPOSITORY_NAME,
 # AWS_REGION_NAME.
+#
+# IMPORTANT: any command below that contains a colon (`:`) must have its
+# ENTIRE line wrapped in single quotes. AWS CodeBuild's buildspec YAML
+# parser is stricter than most YAML libraries (including the one GitHub
+# Actions uses, which is why this only surfaced on a real CodeBuild run,
+# not in the mirrored GitHub Actions workflow): an unquoted `: ` inside a
+# plain scalar is parsed as the start of a nested mapping key, which fails
+# with "found subkeys instead". Wrapping the whole command in single quotes
+# (doubling any literal single quotes inside it, e.g. `'` -> `''`) avoids
+# this entirely — double quotes and backslashes inside a YAML single-quoted
+# scalar are left untouched, unlike YAML double-quoted scalars which would
+# also try to interpret backslash escape sequences.
 
 version: 0.2
 
@@ -19,59 +31,59 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      - echo "== install: tool versions =="
+      - 'echo "== install: tool versions =="'
       - node --version
       - npm --version
       - docker --version
-      - echo "== install: app dependencies =="
+      - 'echo "== install: app dependencies =="'
       - cd app && npm ci && cd -
-      - echo "== install: security scanners (best-effort; scripts fail loudly, not silently, if a tool is missing) =="
-      - pip install --quiet semgrep checkov || echo "WARNING: pip install of semgrep/checkov failed; run-sast.sh/run-iac-scan.sh will report tool_missing"
-      - (GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r '.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url') && curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod +x /usr/local/bin/gitleaks) || echo "WARNING: gitleaks install failed"
-      - (curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: trivy install failed"
-      - (curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: syft install failed"
+      - 'echo "== install: security scanners (best-effort; scripts fail loudly, not silently, if a tool is missing) =="'
+      - 'pip install --quiet semgrep checkov || echo "WARNING: pip install of semgrep/checkov failed; run-sast.sh/run-iac-scan.sh will report tool_missing"'
+      - '(GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r ''.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url'') && curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod +x /usr/local/bin/gitleaks) || echo "WARNING: gitleaks install failed"'
+      - '(curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: trivy install failed"'
+      - '(curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: syft install failed"'
 
   pre_build:
     commands:
-      - echo "== pre_build: lint =="
+      - 'echo "== pre_build: lint =="'
       - cd app && npm run lint && cd -
-      - echo "== pre_build: unit tests =="
+      - 'echo "== pre_build: unit tests =="'
       - cd app && npm test && cd -
-      - echo "== pre_build: ECR login =="
+      - 'echo "== pre_build: ECR login =="'
       - bash ci/scripts/ecr-login.sh
-      - export LOCAL_IMAGE="${ECR_REPOSITORY_NAME}:build-${CODEBUILD_BUILD_NUMBER:-local}"
-      - export IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}"
+      - 'export LOCAL_IMAGE="${ECR_REPOSITORY_NAME}:build-${CODEBUILD_BUILD_NUMBER:-local}"'
+      - 'export IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}"'
 
   build:
     commands:
-      - echo "== build: docker image =="
+      - 'echo "== build: docker image =="'
       - docker build -t "$LOCAL_IMAGE" ./app
 
-      - echo "== build: SAST (Semgrep) =="
+      - 'echo "== build: SAST (Semgrep) =="'
       - bash security/scripts/run-sast.sh app/src || SAST_EXIT=$?
 
-      - echo "== build: dependency scan (npm audit / OWASP Dependency-Check) =="
+      - 'echo "== build: dependency scan (npm audit / OWASP Dependency-Check) =="'
       - bash security/scripts/run-dependency-scan.sh app || DEP_EXIT=$?
 
-      - echo "== build: secret scan (Gitleaks) =="
+      - 'echo "== build: secret scan (Gitleaks) =="'
       - bash security/scripts/run-secret-scan.sh || SECRET_EXIT=$?
 
-      - echo "== build: IaC scan (Checkov against terraform/) =="
+      - 'echo "== build: IaC scan (Checkov against terraform/) =="'
       - bash security/scripts/run-iac-scan.sh terraform || IAC_EXIT=$?
 
-      - echo "== build: container scan (Trivy) =="
+      - 'echo "== build: container scan (Trivy) =="'
       - bash security/scripts/run-container-scan.sh "$LOCAL_IMAGE" || CONTAINER_EXIT=$?
 
-      - echo "== build: SBOM generation (best-effort, non-blocking) =="
+      - 'echo "== build: SBOM generation (best-effort, non-blocking) =="'
       - bash ci/scripts/generate-sbom.sh "$LOCAL_IMAGE" sbom || true
 
-      - echo "== build: SECURITY GATE =="
-      - echo "Individual scan exit codes -> sast=${SAST_EXIT:-0} deps=${DEP_EXIT:-0} secrets=${SECRET_EXIT:-0} iac=${IAC_EXIT:-0} container=${CONTAINER_EXIT:-0}"
+      - 'echo "== build: SECURITY GATE =="'
+      - 'echo "Individual scan exit codes -> sast=${SAST_EXIT:-0} deps=${DEP_EXIT:-0} secrets=${SECRET_EXIT:-0} iac=${IAC_EXIT:-0} container=${CONTAINER_EXIT:-0}"'
       - echo "(non-zero above just means that scanner reported findings or could not run; the GATE below is the actual pass/fail decision, made from the normalized reports, not from these exit codes)"
       - bash security/scripts/security-gate.sh
       - echo "SECURITY GATE PASSED — proceeding to push the image"
 
-      - echo "== build: push to ECR (only reached if the gate passed) =="
+      - 'echo "== build: push to ECR (only reached if the gate passed) =="'
       - export ECR_REPOSITORY_URL="$ECR_REPOSITORY_URL"
       - export LOCAL_IMAGE="$LOCAL_IMAGE"
       - export IMAGE_TAG="$IMAGE_TAG"
@@ -79,7 +91,7 @@ phases:
 
   post_build:
     commands:
-      - echo "== post_build: summary =="
+      - 'echo "== post_build: summary =="'
       - cat security/reports/summary/security-gate-summary.txt || true
 
 # Only imagedefinitions.json is emitted as the pipeline artifact — that is
