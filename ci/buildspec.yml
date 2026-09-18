@@ -42,6 +42,8 @@ phases:
       - '(GITLEAKS_URL=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r ''.assets[] | select(.name | test("linux_x64\\.tar\\.gz$")) | .browser_download_url'') && curl -sSfL "$GITLEAKS_URL" -o /tmp/gitleaks.tar.gz && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks && chmod +x /usr/local/bin/gitleaks) || echo "WARNING: gitleaks install failed"'
       - '(curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: trivy install failed"'
       - '(curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin) || echo "WARNING: syft install failed"'
+      - 'echo "== install: yq (required by security-gate.sh to parse security-policy.yaml) =="'
+      - '(YQ_URL=$(curl -sSfL https://api.github.com/repos/mikefarah/yq/releases/latest | jq -r ''.assets[] | select(.name == "yq_linux_amd64") | .browser_download_url'') && curl -sSfL "$YQ_URL" -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq) || echo "WARNING: yq install failed; security-gate.sh will hard-abort (exit 3) since yq is a required dependency, not a best-effort scanner"'
 
   pre_build:
     commands:
