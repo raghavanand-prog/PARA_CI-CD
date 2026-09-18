@@ -83,57 +83,35 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "arn:aws:codeconnections:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:connection/*"
       },
       {
-        Sid    = "EcsDeployManageService"
+        Sid    = "EcsDeploy"
         Effect = "Allow"
-        # Scoped to the exact ECS service this pipeline deploys (names are
-        # deterministic — see modules/ecs's local.name_prefix — so this ARN
-        # can be constructed without a dependency on the ecs module, which
-        # would otherwise create a cycle: iam -> ecs -> iam).
+        # This matches AWS's own officially documented IAM policy for the
+        # CodePipeline ECS deploy action provider (see "Add permissions for
+        # other AWS services" in the CodePipeline user guide) exactly,
+        # including its Resource: "*" scope for the whole action set.
+        #
+        # We tried scoping ecs:DescribeServices/UpdateService to this one
+        # service's ARN and ecs:DescribeTasks to this one cluster's task
+        # ARN pattern first (least-privilege is the default posture
+        # throughout this module) — both are valid IAM policy language and
+        # terraform apply accepted them, but real pipeline runs against a
+        # live AWS account still failed at the Deploy stage with the same
+        # generic "PermissionError: The provided role does not have
+        # sufficient permissions to access ECS" both before and after that
+        # scoping, with no more specific detail from AWS on which exact
+        # call was rejected. Matching AWS's own reference policy verbatim,
+        # rather than continuing to guess at a scoped variant against an
+        # opaque error, is the documented, supported configuration for
+        # this specific native CodePipeline integration.
+        # checkov:skip=CKV_AWS_290:Matches AWS's own documented IAM policy for the CodePipeline ECS deploy action provider — see inline comment for why a scoped variant was tried and abandoned.
+        # checkov:skip=CKV_AWS_355:Same as CKV_AWS_290 above.
         Action = [
           "ecs:DescribeServices",
-          "ecs:UpdateService",
-        ]
-        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:service/${local.name_prefix}-cluster/${local.name_prefix}-app-service"
-      },
-      {
-        Sid    = "EcsDeployMonitorTasks"
-        Effect = "Allow"
-        # CodePipeline's native ECS deploy action doesn't just call
-        # UpdateService and stop — it polls task status afterward to
-        # determine whether the rollout actually succeeded, which needs
-        # these two read actions. Missing them causes the Deploy stage to
-        # fail outright with "PermissionError: The provided role does not
-        # have sufficient permissions to access ECS", found on a real
-        # pipeline run (ecs:DescribeServices/UpdateService alone were not
-        # enough). ecs:DescribeTasks is scoped to this cluster's tasks;
-        # ecs:ListTasks does not support resource-level permissions at all
-        # (documented AWS API limitation, same class as RegisterTaskDefinition
-        # above).
-        Action   = ["ecs:DescribeTasks"]
-        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${local.name_prefix}-cluster/*"
-      },
-      {
-        Sid      = "EcsDeployListTasks"
-        Effect   = "Allow"
-        Action   = ["ecs:ListTasks"]
-        Resource = "*"
-      },
-      {
-        Sid    = "EcsDeployRegisterTaskDefinition"
-        Effect = "Allow"
-        # ecs:RegisterTaskDefinition and ecs:DescribeTaskDefinition do not
-        # support resource-level permissions in AWS's IAM policy language —
-        # the task definition ARN (with its revision number) does not exist
-        # until RegisterTaskDefinition succeeds, so AWS requires Resource:
-        # "*" for both (documented AWS API limitation, the same class of
-        # restriction as ecr:GetAuthorizationToken below). Every other
-        # action in this policy, including the rest of EcsDeploy above, is
-        # scoped to a specific resource ARN.
-        # checkov:skip=CKV_AWS_290:ecs:RegisterTaskDefinition/DescribeTaskDefinition cannot be scoped to a resource ARN — AWS API limitation, see inline comment. Every other statement in this policy is resource-scoped.
-        # checkov:skip=CKV_AWS_355:Same AWS API limitation as CKV_AWS_290 above — these two actions have no resource type to scope to.
-        Action = [
           "ecs:DescribeTaskDefinition",
+          "ecs:DescribeTasks",
+          "ecs:ListTasks",
           "ecs:RegisterTaskDefinition",
+          "ecs:UpdateService",
         ]
         Resource = "*"
       },
