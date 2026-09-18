@@ -105,6 +105,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
     id     = "expire-noncurrent-versions"
     status = "Enabled"
 
+    # Explicit empty filter = applies to every object in the bucket. Newer
+    # AWS provider versions warn (soon to error) if a rule has neither
+    # `filter` nor `prefix` set, even though "apply to everything" was
+    # previously the implicit default.
+    filter {}
+
     noncurrent_version_expiration {
       noncurrent_days = 90
     }
@@ -176,6 +182,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   rule {
     id     = "expire-old-access-logs"
     status = "Enabled"
+
+    filter {}
 
     expiration {
       days = 90
