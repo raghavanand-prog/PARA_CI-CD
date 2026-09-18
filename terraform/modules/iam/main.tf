@@ -223,6 +223,44 @@ resource "aws_iam_role_policy" "codebuild" {
         Action   = ["secretsmanager:GetSecretValue"]
         Resource = var.jwt_secret_arn
       },
+      {
+        Sid    = "VpcNetworkInterfaceManagement"
+        Effect = "Allow"
+        # This CodeBuild project runs inside the VPC (see vpc_config in
+        # modules/codebuild), so the CodeBuild service itself — not the
+        # human/CI identity running `terraform apply` — needs permission to
+        # create and manage the elastic network interface it attaches to
+        # the private subnet for the build. AWS does not support
+        # resource-level permissions for these specific EC2 Describe/Create/
+        # Delete actions in this context (documented CodeBuild VPC policy
+        # requirement), so Resource must be "*" here, same class of
+        # unavoidable wildcard as EcrAuth above.
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeDhcpOptions",
+          "ec2:DescribeVpcs",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "VpcNetworkInterfacePermission"
+        Effect = "Allow"
+        # Unlike the statement above, this one CAN be scoped: restricted to
+        # network interfaces in this account/region, and further gated by
+        # the AuthorizedService condition so only the CodeBuild service
+        # itself (not an arbitrary caller) can exercise this permission.
+        Action   = "ec2:CreateNetworkInterfacePermission"
+        Resource = "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:network-interface/*"
+        Condition = {
+          StringEquals = {
+            "ec2:AuthorizedService" = "codebuild.amazonaws.com"
+          }
+        }
+      },
     ]
   })
 }
