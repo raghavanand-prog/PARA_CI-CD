@@ -11,7 +11,6 @@
     "BCRYPT_SALT_ROUNDS": "12",
     "RATE_LIMIT_WINDOW_MS": "900000",
     "RATE_LIMIT_MAX": "100",
-    "LOG_LEVEL": "info",
-    "JWT_SECRET": "vercel-demo-public-placeholder-not-a-real-secret-do-not-reuse"
+    "LOG_LEVEL": "info"
   }
 }

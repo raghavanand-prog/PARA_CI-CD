@@ -144,6 +144,28 @@ outcomes in the way we hypothesized."
   from transient failures) is not conflated with its benefit side
   (catching real incomplete-evidence cases) (H3).
 
+## What has actually been measured so far
+
+The infrastructure this methodology targets has since been deployed to a
+real AWS account, and the CI/CD pipeline has run to completion (Source →
+Build → all five gate categories → Deploy) multiple times against real
+commits. This produced one piece of genuine empirical data:
+[`production-incidents.md`](production-incidents.md), a factual log of
+eight real infrastructure/IAM/container failures encountered getting the
+Terraform-provisioned system to a stable, ALB-served state, each with its
+root cause and fix. This is a **qualitative operational case study**, not
+a run of the DBR/VDR/FPR/MTTD/MTTR methodology above — it says nothing
+about detection or enforcement rates for injected vulnerabilities, and it
+should not be read as such. What it does support is the more modest claim
+that this system's gate and infrastructure were exercised against real,
+unscripted AWS behavior (region-specific defaults, IAM permission
+requirements undocumented by the provider, a distroless base image's
+`$PATH` behavior) rather than only a `terraform plan` and a local test
+suite. The controlled-corpus trial described above (deliberately injected
+vulnerabilities, Gated vs. Advisory configurations, repeated runs) has not
+been run and remains exactly what is described in Methodology and Future
+Work.
+
 ## Explicitly Not Claimed
 
 - No specific DBR, VDR, FPR, MTTD, MTTR, or timing figure is stated

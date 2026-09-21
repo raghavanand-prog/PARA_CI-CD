@@ -8,6 +8,15 @@ thresholds; and the deployment simply does not happen if the gate fails.
 There is no manual "approve to deploy" button standing between a scan
 result and the decision it should drive.
 
+**This is a real, currently-deployed system**, not a design exercise: the
+full pipeline (GitHub → CodePipeline → CodeBuild → 5 security gates → ECR →
+ECS Fargate → ALB) is live in a real AWS account, and a supplementary
+public API demo runs on Vercel. See [Live demo](#live-demo) for both URLs,
+and [Production debugging experience](#production-debugging-experience) /
+[`docs/production-incidents.md`](docs/production-incidents.md) for a
+factual log of eight real deployment failures this project's infrastructure
+hit and how each was root-caused and fixed.
+
 ## Table of contents
 
 - [Overview](#overview)
@@ -33,10 +42,11 @@ result and the decision it should drive.
 - [Monitoring](#monitoring)
 - [Troubleshooting](#troubleshooting)
 - [Research component](#research-component)
+- [Production debugging experience](#production-debugging-experience)
 - [Limitations](#limitations)
 - [Future improvements](#future-improvements)
-- [Screenshots](#screenshots)
-- [Demo](#demo)
+- [Live demo](#live-demo)
+- [Demo walkthrough](#demo-walkthrough)
 - [Author](#author)
 
 ## Overview
@@ -124,8 +134,8 @@ sources in [`diagrams/`](diagrams/).
 
 | Layer | Technology |
 |---|---|
-| Application | Node.js 20, Express, bcryptjs, jsonwebtoken, express-validator, helmet, express-rate-limit, pino |
-| Container | Docker (multi-stage, `node:20-alpine`, non-root) |
+| Application | Node.js 22, Express, bcryptjs, jsonwebtoken, express-validator, helmet, express-rate-limit, pino |
+| Container | Docker (multi-stage: `node:22-alpine` build stage, `gcr.io/distroless/nodejs22-debian12:nonroot` runtime — smallest measured CVE surface of the options actually scanned with Trivy, see `app/Dockerfile`) |
 | SAST | Semgrep |
 | Dependency/SCA | npm audit, OWASP Dependency-Check |
 | Secret scanning | Gitleaks |
@@ -314,6 +324,19 @@ Positive Rate, Scan Overhead, Pipeline Execution Time) and methodology —
 without fabricating measured results that would require running that
 methodology against real pipeline executions.
 
+## Production debugging experience
+
+Deploying this project's Terraform to a real AWS account surfaced eight
+genuine failures — region-specific assumptions, IAM permissions AWS's own
+documentation omits, a stricter-than-expected buildspec YAML parser, and a
+distroless-image health-check bug that took log-level evidence (not just
+the error message) to root-cause correctly. Every one is documented with
+the exact error text, the investigation that found the real cause, and the
+fix, in [`docs/production-incidents.md`](docs/production-incidents.md).
+This is not a curated highlight reel — it is the complete list of
+deploy-blocking issues encountered getting from `terraform apply` to a
+healthy, ALB-served ECS Fargate task.
+
 ## Limitations
 
 - No DAST, fuzzing, or formal penetration testing.
@@ -352,46 +375,46 @@ methodology against real pipeline executions.
 - Actually execute the `docs/research-notes.md` methodology against real
   pipeline runs and report measured DBR/VDR/FPR/MTTD/MTTR figures.
 
-## Screenshots
+## Live demo
 
-_Add screenshots of a passing pipeline run, a blocked (FAIL) gate summary,
-the ECS service running behind the ALB, and the CloudWatch dashboard here
-once you've deployed this to your own AWS account — none are included in
-this repository since no live AWS deployment exists in the environment
-this project was built in._
+Two separate, genuinely running deployments — do not confuse them:
 
-## Live API demo (Vercel)
+| | AWS production pipeline | Vercel API demo |
+|---|---|---|
+| **What it is** | The actual system this README describes: GitHub → CodePipeline → CodeBuild → 5 security gates → ECR → ECS Fargate → ALB | A supplementary, publicly reachable copy of just the Express API, for quick poking without needing AWS access |
+| **URL** | `http://secure-cicd-dev-alb-907205721.ap-south-1.elb.amazonaws.com` | `https://secure-aws-cicd-demo-api.vercel.app` |
+| **Try it** | `curl http://secure-cicd-dev-alb-907205721.ap-south-1.elb.amazonaws.com/health` | `curl https://secure-aws-cicd-demo-api.vercel.app/health` |
+| **Runs the security gate?** | Yes — every deploy | No — Vercel's build does not run Semgrep/Trivy/Checkov/`security-gate.sh` |
+| **Persistence** | ECS task, in-memory user store (resets on task restart) | Serverless function, in-memory user store (resets on every cold start — expect registered users to disappear between requests) |
 
-The `app/` REST API (health check, register, login, profile) can also run
-as a Vercel serverless deployment via `app/api/index.js` — a thin wrapper
-around the same `createApp()` factory used locally and on ECS Fargate, so
-routes/middleware/validation are identical. See `app/vercel.json` for the
-routing rewrite and demo-only runtime config, and
-[`docs/deployment.md`](docs/deployment.md#11-vercel-live-api-demo-supplementary-not-the-cicd-pipeline)
-for exact deploy steps.
+The ALB target is a **student/demo AWS account kept running only while
+this project is being actively evaluated** — plain HTTP (no ACM
+certificate/custom domain provisioned, see [Limitations](#limitations)),
+single NAT gateway, smallest Fargate task size. It is not a
+cost-optimized-for-uptime production service and may be torn down
+(`terraform destroy`) after evaluation to stop AWS billing; the Vercel
+demo is the more durable of the two public endpoints. Both were verified
+reachable from a clean, unauthenticated request as of the last update to
+this README.
 
-**Important:** this is a supplementary way to poke at the API only. It
-does **not** exercise this project's actual CI/CD security-gate pipeline —
-Vercel's build does not run Semgrep/Trivy/Checkov/security-gate.sh, and
-there is no ECS/CodePipeline/Terraform involved. The real, gated AWS
-deployment path is the one described throughout this README and
-`docs/deployment.md`. The Vercel deployment also uses an in-memory user
-store (see [Limitations](#limitations)), so registered users do not
-persist reliably across serverless cold starts.
+Full architecture diagrams (system, CI/CD sequence, security-gate decision
+flow, AWS infrastructure) are in
+[`docs/architecture.md`](docs/architecture.md).
 
-**Production URL:** _pending — to be added once deployed; see
-`docs/deployment.md` §11 for the exact `vercel` CLI steps to deploy it
-yourself from `app/`._
+## Demo walkthrough
 
-## Demo
-
-1. Deploy following [`docs/deployment.md`](docs/deployment.md).
-2. Push a clean commit — watch the pipeline go Source -> Build (gate
-   PASS) -> Deploy, and `curl` the ALB's `/health` endpoint.
+1. `curl` the AWS ALB `/health` endpoint above — that response came from a
+   real ECS Fargate task that only exists because a CodeBuild run passed
+   all five security gates.
+2. Push a clean commit to `main` — watch the pipeline go Source → Build
+   (gate PASS) → Deploy in the CodePipeline console.
 3. Run the [intentional-vulnerability demo](#intentional-vulnerability-demo)
    locally or push one of its scenarios to a branch — watch the gate FAIL
    and the Deploy stage never run.
 4. Revert and push again — watch it PASS.
+5. Read [`docs/production-incidents.md`](docs/production-incidents.md) for
+   what actually broke (and how it was diagnosed) getting this pipeline to
+   a genuinely healthy state the first time.
 
 ## Author
 

@@ -310,21 +310,35 @@ project's DevSecOps pipeline actually exercises.
   the Vercel serverless function handler (Vercel's Node runtime accepts
   an Express app instance as a request handler).
 - `app/vercel.json` — rewrites every request path to that one function,
-  and sets the handful of runtime env vars (`JWT_SECRET`, `JWT_ISSUER`,
-  rate-limit thresholds, log level) the app's `src/config/index.js`
-  requires to start. The `JWT_SECRET` value there is a clearly-labeled
-  public placeholder (`vercel-demo-public-placeholder-not-a-real-secret-
-  do-not-reuse`) — committing it is safe specifically because it signs
-  tokens for a throwaway demo API with an in-memory user store, nothing
-  more. It is never reused for the AWS deployment, which gets its real
-  JWT secret from Secrets Manager (see `terraform/modules/security`).
+  and sets the non-secret runtime env vars (`JWT_ISSUER`, rate-limit
+  thresholds, log level) the app's `src/config/index.js` requires to
+  start. `JWT_SECRET` is deliberately **not** in this file — it was
+  originally committed here as a labeled placeholder, but even a
+  labeled placeholder JWT signing secret becomes the deployment's real
+  signing key the moment Vercel builds it, so it was moved to a
+  project-level **encrypted** Vercel environment variable instead (set via
+  `vercel env add JWT_SECRET production` or the dashboard, generated
+  independently and never committed). It is never reused for the AWS
+  deployment, which gets its own real JWT secret from Secrets Manager
+  (see `terraform/modules/security`) — the two deployments intentionally
+  never share a signing key.
 
-### Deploying it yourself
+### Deployed instance
+
+**Live URL:** `https://secure-aws-cicd-demo-api.vercel.app`
+
+```bash
+curl https://secure-aws-cicd-demo-api.vercel.app/health
+# {"status":"ok","uptimeSeconds":...,"timestamp":"..."}
+```
+
+### Deploying your own copy
 
 ```bash
 npm install -g vercel     # one-time
 cd app
 vercel login               # one-time browser auth
+vercel env add JWT_SECRET production   # paste a freshly generated random value — never the committed placeholder
 vercel --prod
 ```
 
@@ -336,6 +350,14 @@ a static build). It prints a production URL on success; verify with:
 curl https://<your-deployment-url>/health
 # expect: {"status":"ok", ...}
 ```
+
+By default, a new Vercel project also has **Vercel Authentication**
+(SSO/deployment protection) enabled, which returns an auth redirect
+instead of your API's response to anyone who isn't logged into your
+Vercel account — disable it (Project Settings → Deployment Protection) if
+the point is a *publicly* reachable demo, and confirm with a request from
+outside your own browser session (a different network, `curl` from
+another machine, or an incognito window) before considering it done.
 
 ### Known limitation of this deployment specifically
 
