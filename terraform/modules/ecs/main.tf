@@ -158,10 +158,22 @@ resource "aws_ecs_task_definition" "app" {
       # CMD-SHELL health check against this image fails every attempt
       # before node even starts — the container never gets marked healthy,
       # and the ECS deployment circuit breaker eventually trips. CMD runs
-      # the argv list directly (node itself as argv[0]), which distroless's
-      # nodejs image supports natively.
+      # the argv list directly, resolving argv[0] via $PATH rather than
+      # through the image's own ENTRYPOINT.
+      #
+      # argv[0] must be the ABSOLUTE path /nodejs/bin/node, not the bare
+      # "node": confirmed via `docker inspect gcr.io/distroless/
+      # nodejs22-debian12:nonroot` that this image's ENTRYPOINT is
+      # ["/nodejs/bin/node"] but its PATH env is just the standard system
+      # dirs (no /nodejs/bin) — so a bare "node" here fails with
+      # "executable file not found in $PATH" on every single invocation.
+      # This was confirmed as the actual root cause of a real production
+      # deployment failure: the app itself was healthy and answering the
+      # ALB's own health checks throughout, but ECS's container-level
+      # health check never once reached the app before the container was
+      # killed and the deployment's circuit breaker tripped.
       healthCheck = {
-        command     = ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:${var.container_port}/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+        command     = ["CMD", "/nodejs/bin/node", "-e", "require('http').get('http://127.0.0.1:${var.container_port}/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
         interval    = 30
         timeout     = 5
         retries     = 3

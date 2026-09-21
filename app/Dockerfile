@@ -42,8 +42,21 @@ EXPOSE 3000
 # Distroless has no shell, so HEALTHCHECK must use exec form (JSON array)
 # rather than shell form — `CMD node -e "..."` would otherwise try to run
 # through /bin/sh, which doesn't exist in this image.
+#
+# The binary must be the ABSOLUTE path (/nodejs/bin/node), not the bare
+# "node": exec-form CMD/HEALTHCHECK resolves argv[0] via $PATH rather than
+# through the image's own ENTRYPOINT, and this image's PATH (verified via
+# `docker inspect .Config.Env`) is just the standard system dirs
+# (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin) — it does
+# NOT include /nodejs/bin, even though ENTRYPOINT itself
+# (["/nodejs/bin/node"], also confirmed via `docker inspect`) uses that
+# exact path. A bare "node" here fails with "executable file not found in
+# $PATH" on every invocation; this is what silently broke the ECS
+# container health check in production (confirmed: the app itself was
+# healthy and answering the ALB's own checks the whole time — the
+# internal health check process never even reached the app).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["node", "-e", "require('http').get('http://127.0.0.1:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+  CMD ["/nodejs/bin/node", "-e", "require('http').get('http://127.0.0.1:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
 
 # No dumb-init: distroless has no shell to run it from, and an
 # Alpine-built (musl-linked) dumb-init binary can't run on this
