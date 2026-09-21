@@ -64,3 +64,9 @@ variable "alarm_notification_email" {
   type    = string
   default = ""
 }
+
+variable "image_tag" {
+  description = "See terraform/variables.tf: only needed before the first CodePipeline run, or to manually re-register the task definition for an infra-only change."
+  type        = string
+  default     = "initial"
+}

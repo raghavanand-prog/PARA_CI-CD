@@ -109,6 +109,21 @@ variable "alarm_notification_email" {
   default     = ""
 }
 
+variable "image_tag" {
+  description = <<-EOT
+    ECR image tag for the initial task definition, used only before
+    CodePipeline's ECS deploy action has ever run against this service (see
+    modules/ecs/variables.tf). Leave at the default "initial" for a brand
+    new deployment; after the first successful pipeline run, only pass a
+    real tag here if you need to manually re-register the task definition
+    (e.g. to pick up an infra-only change to the container definition,
+    such as command or health check fields) without waiting for a new
+    application build — CodePipeline owns the image tag from then on.
+  EOT
+  type        = string
+  default     = "initial"
+}
+
 variable "dependency_scan_medium_threshold" {
   description = "Example of a policy-tunable value surfaced through Terraform outputs/tags for traceability with security/policy/security-policy.yaml. Purely informational at the infra layer."
   type        = number

@@ -49,6 +49,7 @@ module "app" {
 
   container_port              = var.container_port
   container_health_check_path = var.container_health_check_path
+  image_tag                   = var.image_tag
 
   # Dev-sized: smallest Fargate task size, single task, single NAT gateway —
   # intentionally cheap enough to run in a student/free-tier AWS account.

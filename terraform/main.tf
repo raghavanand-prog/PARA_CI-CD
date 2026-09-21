@@ -313,6 +313,7 @@ module "ecs" {
   task_cpu                    = var.ecs_task_cpu
   task_memory                 = var.ecs_task_memory
   desired_count               = var.ecs_desired_count
+  image_tag                   = var.image_tag
   ecr_repository_url          = module.ecr.repository_url
   ecs_task_execution_role_arn = module.iam.ecs_task_execution_role_arn
   ecs_task_role_arn           = module.iam.ecs_task_role_arn
