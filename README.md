@@ -322,7 +322,17 @@ problem statement, three testable hypotheses (H1-H3), and exact metrics
 (MTTD, MTTR, Deployment Block Rate, Vulnerability Detection Rate, False
 Positive Rate, Scan Overhead, Pipeline Execution Time) and methodology —
 without fabricating measured results that would require running that
-methodology against real pipeline executions.
+methodology against real pipeline executions. It also states plainly
+which piece of this has actually been measured so far (a qualitative
+production-incident case study — see below) versus what remains a
+proposed, not-yet-run quantitative trial.
+
+**Further reading:**
+- [`docs/research-notes.md`](docs/research-notes.md) — problem statement, hypotheses, methodology, metrics
+- [`docs/research-paper-ieee.pdf`](docs/research-paper-ieee.pdf) — IEEE-style write-up of the above, plus the production incident case study
+- [`docs/project-guide.pdf`](docs/project-guide.pdf) — comprehensive technical reference covering architecture, security gates, AWS infrastructure, deployment, and the full incident log
+- [`docs/threat-model.md`](docs/threat-model.md) — STRIDE-style threat table and supply-chain security notes
+- [`docs/deployment.md`](docs/deployment.md) — exact, reproducible deployment steps for both the AWS pipeline and the Vercel demo
 
 ## Production debugging experience
 
