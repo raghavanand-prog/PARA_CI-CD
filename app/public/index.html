@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Secure AWS CI/CD Pipeline — API Demo</title>
+  <meta name="description" content="Interactive demo of the Secure AWS CI/CD Pipeline's REST API (register, login, profile). Supplementary demo only — not the security-gated AWS pipeline." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <p class="eyebrow">Demo UI — supplementary, not the security-gated pipeline</p>
+      <h1>Secure AWS CI/CD Pipeline</h1>
+      <p class="tagline">
+        This page exercises the same demo REST API that AWS CodePipeline
+        builds, scans with five security gates, and deploys to ECS Fargate.
+        This particular copy runs on Vercel for easy public access — it does
+        <strong>not</strong> run the security gates itself.
+      </p>
+      <div class="links">
+        <a href="https://github.com/raghavanand-prog/PARA_CI-CD" target="_blank" rel="noopener">GitHub repository</a>
+        <span aria-hidden="true">·</span>
+        <a href="http://secure-cicd-dev-alb-907205721.ap-south-1.elb.amazonaws.com/health" target="_blank" rel="noopener">Real AWS deployment (/health)</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="card" id="status-card">
+      <h2>API status</h2>
+      <div id="status-body" class="status-body">
+        <span class="dot dot-pending"></span>
+        <span id="status-text">Checking…</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Register</h2>
+        <form id="register-form">
+          <label>Name
+            <input type="text" name="name" required minlength="1" maxlength="100" autocomplete="name" />
+          </label>
+          <label>Email
+            <input type="email" name="email" required autocomplete="email" />
+          </label>
+          <label>Password
+            <input type="password" name="password" required minlength="10" autocomplete="new-password" />
+            <span class="hint">10+ chars, one uppercase, one lowercase, one digit</span>
+          </label>
+          <button type="submit">Register</button>
+        </form>
+        <pre class="output" id="register-output" hidden></pre>
+      </div>
+
+      <div class="card">
+        <h2>Login</h2>
+        <form id="login-form">
+          <label>Email
+            <input type="email" name="email" required autocomplete="email" />
+          </label>
+          <label>Password
+            <input type="password" name="password" required autocomplete="current-password" />
+          </label>
+          <button type="submit">Login</button>
+        </form>
+        <pre class="output" id="login-output" hidden></pre>
+      </div>
+
+      <div class="card">
+        <h2>Profile</h2>
+        <p class="hint">Uses the token from a successful register/login above.</p>
+        <button id="profile-button" disabled>Fetch /api/users/profile</button>
+        <pre class="output" id="profile-output" hidden></pre>
+      </div>
+    </section>
+
+    <section class="card note">
+      <h2>About this demo</h2>
+      <ul>
+        <li>The user store is in-memory — registered users do not persist across serverless cold starts. Register, then log in within the same session to see a token, and use it for the profile fetch.</li>
+        <li>Nothing typed here is sent anywhere except this API — no analytics, no third-party requests.</li>
+        <li>This page and the API it calls are served from the same origin, so no CORS configuration is needed here (there is no browser frontend calling the AWS-deployed copy of the API).</li>
+        <li>The actual DevSecOps pipeline — GitHub → CodePipeline → CodeBuild → 5 security gates → ECR → ECS Fargate → ALB — is documented in the repository's README and <code>docs/</code>.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Raghav Anand — <a href="https://github.com/raghavanand-prog/PARA_CI-CD" target="_blank" rel="noopener">source on GitHub</a></p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
