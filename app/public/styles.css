@@ -109,8 +109,29 @@ button {
 button:hover:not(:disabled) { background: var(--accent-strong); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.button-row button { align-self: auto; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--muted);
+}
+
 @media (max-width: 480px) {
   button { align-self: stretch; }
+  .button-row { flex-direction: column; }
 }
 
 .output {

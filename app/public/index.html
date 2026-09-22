@@ -33,6 +33,10 @@
         <span class="dot dot-pending"></span>
         <span id="status-text">Checking…</span>
       </div>
+      <div class="status-body" id="ratelimit-body" hidden>
+        <span class="dot" id="ratelimit-dot"></span>
+        <span id="ratelimit-text"></span>
+      </div>
     </section>
 
     <section class="grid">
@@ -49,8 +53,14 @@
             <input type="password" name="password" required minlength="10" autocomplete="new-password" />
             <span class="hint">10+ chars, one uppercase, one lowercase, one digit</span>
           </label>
-          <button type="submit">Register</button>
+          <div class="button-row">
+            <button type="submit">Register</button>
+            <button type="button" class="btn-secondary" id="register-weak-btn">Try weak password</button>
+          </div>
         </form>
+        <p class="hint">"Try weak password" submits a password that fails
+          server-side validation on purpose, to show the API's real
+          rejection behavior — not just the happy path.</p>
         <pre class="output" id="register-output" hidden></pre>
       </div>
 
@@ -71,7 +81,13 @@
       <div class="card">
         <h2>Profile</h2>
         <p class="hint">Uses the token from a successful register/login above.</p>
-        <button id="profile-button" disabled>Fetch /api/users/profile</button>
+        <div class="button-row">
+          <button id="profile-button" disabled>Fetch /api/users/profile</button>
+          <button type="button" class="btn-secondary" id="profile-invalid-btn">Try invalid token</button>
+        </div>
+        <p class="hint">"Try invalid token" sends a deliberately tampered
+          Authorization header to show the API's real 401 rejection —
+          no valid token from above is needed for this one.</p>
         <pre class="output" id="profile-output" hidden></pre>
       </div>
     </section>
@@ -83,6 +99,7 @@
         <li>Nothing typed here is sent anywhere except this API — no analytics, no third-party requests.</li>
         <li>This page and the API it calls are served from the same origin, so no CORS configuration is needed here (there is no browser frontend calling the AWS-deployed copy of the API).</li>
         <li>The actual DevSecOps pipeline — GitHub → CodePipeline → CodeBuild → 5 security gates → ECR → ECS Fargate → ALB — is documented in the repository's README and <code>docs/</code>.</li>
+        <li>The rate-limit indicator above reflects the API's real <code>express-rate-limit</code> middleware (100 requests / 15 minutes per client), read directly from the response's <code>RateLimit-*</code> headers — it is not a UI-only simulation.</li>
       </ul>
     </section>
   </main>
