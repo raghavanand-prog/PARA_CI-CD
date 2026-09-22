@@ -16,8 +16,27 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 function createApp() {
   const app = express();
 
-  // Secure HTTP headers (CSP, HSTS, X-Frame-Options, etc.)
-  app.use(helmet());
+  // Secure HTTP headers (CSP, HSTS, X-Frame-Options, etc.). helmet's
+  // default CSP includes `upgrade-insecure-requests`, which tells the
+  // browser to silently rewrite every same-origin http:// subresource
+  // request (styles.css, the page's own scripts) to https:// before
+  // sending it. That's the right default for a normal site, but this
+  // demo's ALB intentionally has no HTTPS listener/certificate — with
+  // the directive on, every asset request got upgraded to https and
+  // failed with ERR_CERT_AUTHORITY_INVALID, leaving the page served but
+  // completely unstyled with no JS running. Vercel is HTTPS-only, so
+  // dropping the directive there is a no-op; it only changes behavior
+  // for this plain-HTTP AWS deployment, where it's the correct setting.
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'upgrade-insecure-requests': null,
+        },
+      },
+    }),
+  );
 
   app.use(express.json({ limit: '10kb' }));
 
