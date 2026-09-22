@@ -38,6 +38,11 @@ const config = {
     expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     issuer: process.env.JWT_ISSUER || 'secure-aws-cicd-demo-api',
   },
+  refreshToken: {
+    // Opaque (not a JWT), tracked in refreshTokenStore.js specifically so it
+    // can be revoked — see that file's header comment for why.
+    expiresInMs: parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN_MS || `${7 * 24 * 60 * 60 * 1000}`, 10), // 7 days
+  },
   bcrypt: {
     saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10),
   },

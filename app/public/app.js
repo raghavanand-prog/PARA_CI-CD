@@ -4,6 +4,8 @@
 // same Vercel deployment), so no base URL or CORS handling is needed.
 
 let currentToken = null;
+let currentRefreshToken = null;
+let currentEmail = null;
 
 async function checkHealth() {
   const dot = document.querySelector('#status-body .dot');
@@ -64,6 +66,32 @@ function setButtonsDisabled(form, disabled) {
   form.querySelectorAll('button').forEach((b) => { b.disabled = disabled; });
 }
 
+// Called after any successful register/login/refresh: updates the shared
+// session state and enables the buttons that depend on it.
+function setSession(email, token, refreshToken) {
+  currentEmail = email;
+  currentToken = token;
+  currentRefreshToken = refreshToken;
+
+  document.getElementById('profile-button').disabled = false;
+  document.getElementById('refresh-token-button').disabled = false;
+  document.getElementById('logout-button').disabled = false;
+  document.getElementById('session-status').textContent = `Logged in as ${email}`;
+}
+
+// Called after logout (or on load): clears session state and disables the
+// buttons that require it.
+function clearSession() {
+  currentEmail = null;
+  currentToken = null;
+  currentRefreshToken = null;
+
+  document.getElementById('profile-button').disabled = true;
+  document.getElementById('refresh-token-button').disabled = true;
+  document.getElementById('logout-button').disabled = true;
+  document.getElementById('session-status').textContent = 'Not logged in — register or log in above.';
+}
+
 function wireAuthForm(formId, outputId, path) {
   const form = document.getElementById(formId);
   const output = document.getElementById(outputId);
@@ -84,9 +112,8 @@ function wireAuthForm(formId, outputId, path) {
         return;
       }
       showOutput(output, body, false);
-      if (body.token) {
-        currentToken = body.token;
-        document.getElementById('profile-button').disabled = false;
+      if (body.token && body.refreshToken) {
+        setSession(body.user.email, body.token, body.refreshToken);
       }
     } catch (err) {
       showOutput(output, { error: err.message }, true);
@@ -157,9 +184,84 @@ function wireProfileButton() {
   });
 }
 
+// Exchanges the current refresh token for a new access+refresh token pair.
+// The server rotates the refresh token on every use (see
+// app/src/controllers/authController.js) — the old one stops working the
+// instant this succeeds, which the output makes visible by showing the
+// new refresh token differs from the one that was just spent.
+function wireRefreshButton() {
+  const button = document.getElementById('refresh-token-button');
+  const output = document.getElementById('session-output');
+
+  button.addEventListener('click', async () => {
+    if (!currentRefreshToken) return;
+    button.disabled = true;
+    try {
+      const spentRefreshToken = currentRefreshToken;
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: currentRefreshToken }),
+      });
+      recordRateLimit(res);
+      const body = await res.json();
+      if (!res.ok) {
+        showOutput(output, body, true);
+        return;
+      }
+      currentToken = body.token;
+      currentRefreshToken = body.refreshToken;
+      showOutput(output, {
+        ...body,
+        note: `refresh token rotated: ${spentRefreshToken.slice(0, 12)}... is now revoked`,
+      }, false);
+    } catch (err) {
+      showOutput(output, { error: err.message }, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+// Revokes the current refresh token server-side. The current access token
+// (if any) is intentionally left alone here — it remains valid until it
+// naturally expires, since a stateless JWT can't be revoked early without
+// a blocklist. That's the real tradeoff this button demonstrates, not a
+// bug: the refresh token is what's actually revocable.
+function wireLogoutButton() {
+  const button = document.getElementById('logout-button');
+  const output = document.getElementById('session-output');
+
+  button.addEventListener('click', async () => {
+    if (!currentRefreshToken) return;
+    button.disabled = true;
+    try {
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: currentRefreshToken }),
+      });
+      recordRateLimit(res);
+      showOutput(output, {
+        message: res.status === 204
+          ? 'Logged out: refresh token revoked server-side.'
+          : `Unexpected status ${res.status}`,
+      }, res.status !== 204);
+      clearSession();
+    } catch (err) {
+      showOutput(output, { error: err.message }, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
 checkHealth();
+clearSession();
 wireAuthForm('register-form', 'register-output', '/api/auth/register');
 wireAuthForm('login-form', 'login-output', '/api/auth/login');
 wireWeakPasswordDemo();
 wireProfileButton();
 wireInvalidTokenDemo();
+wireRefreshButton();
+wireLogoutButton();

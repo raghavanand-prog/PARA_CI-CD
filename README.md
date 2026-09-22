@@ -93,7 +93,14 @@ for the full research framing.
 ## Features
 
 - REST API: `GET /health`, `POST /api/auth/register`, `POST
-  /api/auth/login`, `GET /api/users/profile` (JWT-protected).
+  /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`,
+  `GET /api/users/profile` (JWT-protected).
+- Refresh-token session model: short-lived, stateless JWT access tokens
+  paired with opaque, server-tracked refresh tokens
+  (`app/src/models/refreshTokenStore.js`) that rotate on every use and can
+  be revoked on logout — the actual mechanism that makes a session
+  revocable, since a bare JWT can't be invalidated early without a
+  blocklist.
 - bcrypt password hashing, JWT auth middleware, Helmet security headers,
   express-rate-limit, express-validator input validation.
 - Structured logging (pino) with automatic redaction of
@@ -279,7 +286,7 @@ make test    # unit tests (app/tests) + integration tests (tests/integration)
 make lint
 ```
 
-Actually run in this repository: 14 unit tests + 3 integration tests, all
+Actually run in this repository: 21 unit tests + 4 integration tests, all
 passing; ESLint clean.
 
 ## Security testing

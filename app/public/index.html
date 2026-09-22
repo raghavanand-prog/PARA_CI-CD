@@ -90,6 +90,23 @@
           no valid token from above is needed for this one.</p>
         <pre class="output" id="profile-output" hidden></pre>
       </div>
+
+      <div class="card">
+        <h2>Session (refresh token)</h2>
+        <p class="hint" id="session-status">Not logged in — register or log in above.</p>
+        <div class="button-row">
+          <button id="refresh-token-button" disabled>Refresh access token</button>
+          <button type="button" class="btn-secondary" id="logout-button" disabled>Logout</button>
+        </div>
+        <p class="hint">"Refresh access token" exchanges the current
+          refresh token for a new access+refresh token pair — the old
+          refresh token is revoked immediately (rotation), not just
+          replaced. "Logout" revokes the refresh token server-side; the
+          current access token stays valid until it naturally expires
+          (a real, known limitation of stateless JWTs, not a bug — the
+          refresh token is what's actually revocable here).</p>
+        <pre class="output" id="session-output" hidden></pre>
+      </div>
     </section>
 
     <section class="card note">
@@ -100,6 +117,7 @@
         <li>This page and the API it calls are served from the same origin, so no CORS configuration is needed here (there is no browser frontend calling the AWS-deployed copy of the API).</li>
         <li>The actual DevSecOps pipeline — GitHub → CodePipeline → CodeBuild → 5 security gates → ECR → ECS Fargate → ALB — is documented in the repository's README and <code>docs/</code>.</li>
         <li>The rate-limit indicator above reflects the API's real <code>express-rate-limit</code> middleware (100 requests / 15 minutes per client), read directly from the response's <code>RateLimit-*</code> headers — it is not a UI-only simulation.</li>
+        <li>Access tokens (JWTs) are stateless and self-verifying, so they can't be revoked early without a blocklist. Refresh tokens are the opposite: opaque, random strings tracked server-side (<code>app/src/models/refreshTokenStore.js</code>) specifically so a session <em>can</em> be revoked — see the Session card above.</li>
       </ul>
     </section>
   </main>

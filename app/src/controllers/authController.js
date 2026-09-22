@@ -5,14 +5,31 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const config = require('../config');
 const userStore = require('../models/userStore');
+const refreshTokenStore = require('../models/refreshTokenStore');
 const { ConflictError, AuthenticationError } = require('../utils/errors');
 
-function issueToken(user) {
+function issueAccessToken(user) {
   return jwt.sign(
     { sub: user.id, email: user.email },
     config.jwt.secret,
     { expiresIn: config.jwt.expiresIn, issuer: config.jwt.issuer },
   );
+}
+
+// Opaque, cryptographically random — not a JWT — specifically so it can be
+// looked up and revoked server-side (see refreshTokenStore.js).
+function issueRefreshToken(user) {
+  const token = crypto.randomBytes(48).toString('hex');
+  refreshTokenStore.create(token, {
+    userId: user.id,
+    email: user.email,
+    expiresAt: Date.now() + config.refreshToken.expiresInMs,
+  });
+  return token;
+}
+
+function issueTokenPair(user) {
+  return { token: issueAccessToken(user), refreshToken: issueRefreshToken(user) };
 }
 
 async function register(req, res, next) {
@@ -33,11 +50,9 @@ async function register(req, res, next) {
       createdAt: new Date().toISOString(),
     });
 
-    const token = issueToken(user);
-
     res.status(201).json({
       user: { id: user.id, email: user.email, name: user.name },
-      token,
+      ...issueTokenPair(user),
     });
   } catch (err) {
     next(err);
@@ -65,15 +80,51 @@ async function login(req, res, next) {
       throw new AuthenticationError('Invalid email or password');
     }
 
-    const token = issueToken(user);
-
     res.status(200).json({
       user: { id: user.id, email: user.email, name: user.name },
-      token,
+      ...issueTokenPair(user),
     });
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = { register, login };
+// Exchanges a still-valid refresh token for a new access token. The
+// refresh token itself is rotated (old one revoked, new one issued) on
+// every use: if a stolen refresh token is ever used by an attacker, the
+// legitimate client's next refresh attempt will fail with the old token
+// already gone, which is a detectable signal — a refresh token that's
+// reused indefinitely without rotation loses that property.
+async function refresh(req, res, next) {
+  try {
+    const { refreshToken } = req.body;
+    const record = refreshTokenStore.get(refreshToken);
+
+    if (!record) {
+      throw new AuthenticationError('Invalid or expired refresh token');
+    }
+
+    refreshTokenStore.revoke(refreshToken);
+    const user = { id: record.userId, email: record.email };
+
+    res.status(200).json(issueTokenPair(user));
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Revokes a refresh token so it can no longer be exchanged for a new
+// access token. Deliberately idempotent (revoking an already-unknown
+// token still returns 204) rather than leaking whether a given refresh
+// token was ever valid.
+async function logout(req, res, next) {
+  try {
+    const { refreshToken } = req.body;
+    refreshTokenStore.revoke(refreshToken);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, refresh, logout };

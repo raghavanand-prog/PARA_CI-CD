@@ -27,7 +27,13 @@ const loginValidation = [
   body('password').isString().notEmpty().withMessage('Password is required'),
 ];
 
+const refreshTokenValidation = [
+  body('refreshToken').isString().notEmpty().withMessage('refreshToken is required'),
+];
+
 router.post('/register', validate(registerValidation), authController.register);
 router.post('/login', validate(loginValidation), authController.login);
+router.post('/refresh', validate(refreshTokenValidation), authController.refresh);
+router.post('/logout', validate(refreshTokenValidation), authController.logout);
 
 module.exports = router;
