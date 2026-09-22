@@ -364,11 +364,15 @@ healthy, ALB-served ECS Fargate task.
   gate input.
 - In-memory user store (`app/src/models/userStore.js`) — no persistence
   across process/task restarts, and unreliable across Vercel serverless
-  cold starts specifically (see [Live API demo](#live-api-demo-vercel)). A
-  real deployment would back it with RDS/DynamoDB.
-- No frontend/UI and no AI/ML component — this is a backend API plus its
-  surrounding CI/CD and security tooling only; the project's engineering
-  focus is deliberately the pipeline, not the application.
+  cold starts specifically (see [Live demo](#live-demo)). A real
+  deployment would back it with RDS/DynamoDB.
+- No AI/ML component — the project's engineering focus is deliberately
+  the CI/CD pipeline and its security gates, not the application layer.
+  A minimal interactive demo UI exists (`app/public/`, plain HTML/CSS/JS,
+  no build step) but only as a way to exercise the API in a browser on
+  the Vercel deployment — it is not served by the AWS/ECS deployment,
+  which remains API-only, and it carries no security review of its own
+  beyond what Helmet/CSP already provide server-side.
 
 ## Future improvements
 
@@ -393,7 +397,7 @@ Two separate, genuinely running deployments — do not confuse them:
 |---|---|---|
 | **What it is** | The actual system this README describes: GitHub → CodePipeline → CodeBuild → 5 security gates → ECR → ECS Fargate → ALB | A supplementary, publicly reachable copy of just the Express API, for quick poking without needing AWS access |
 | **URL** | `http://secure-cicd-dev-alb-907205721.ap-south-1.elb.amazonaws.com` | `https://secure-aws-cicd-demo-api.vercel.app` |
-| **Try it** | `curl http://secure-cicd-dev-alb-907205721.ap-south-1.elb.amazonaws.com/health` | `curl https://secure-aws-cicd-demo-api.vercel.app/health` |
+| **Try it** | `curl http://secure-cicd-dev-alb-907205721.ap-south-1.elb.amazonaws.com/health` | Open `https://secure-aws-cicd-demo-api.vercel.app` in a browser for an interactive demo UI (register/login/profile), or `curl .../health` for raw JSON |
 | **Runs the security gate?** | Yes — every deploy | No — Vercel's build does not run Semgrep/Trivy/Checkov/`security-gate.sh` |
 | **Persistence** | ECS task, in-memory user store (resets on task restart) | Serverless function, in-memory user store (resets on every cold start — expect registered users to disappear between requests) |
 
