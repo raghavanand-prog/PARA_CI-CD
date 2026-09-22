@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "cleanUrls": true,
   "rewrites": [
     { "source": "/health", "destination": "/api/index" },
     { "source": "/api/(.*)", "destination": "/api/index" }

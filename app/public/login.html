@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign in — Secure AWS CI/CD Pipeline</title>
+  <meta name="description" content="Authentication for the Secure AWS CI/CD Pipeline demo API — token-based access control with server-side session revocation." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="auth-shell">
+    <aside class="auth-brand" aria-hidden="true">
+      <div class="auth-brand-mark">
+        <span class="mark-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2 3 6v6c0 5 3.8 8.7 9 10 5.2-1.3 9-5 9-10V6l-9-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m8.5 12 2.5 2.5L16 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        Secure CI/CD Pipeline
+      </div>
+
+      <div class="auth-brand-copy">
+        <h1>Secure Authentication<br />Infrastructure</h1>
+        <p>
+          Token-based access control with short-lived JWTs, revocable
+          server-tracked refresh tokens, and real-time session validation
+          — the same auth backend that ships through a five-gate
+          DevSecOps pipeline (SAST, dependency, secrets, IaC, and
+          container scanning) before every deploy.
+        </p>
+      </div>
+
+      <div class="auth-brand-status">
+        <div class="status-line"><span class="dot-live"></span> Access tokens: short-lived, self-verifying JWT</div>
+        <div class="status-line"><span class="dot-live"></span> Refresh tokens: server-tracked, revocable, rotate on use</div>
+        <div class="status-line"><span class="dot-live"></span> Rate limiting: 100 req / 15 min per client</div>
+      </div>
+    </aside>
+
+    <main class="auth-panel">
+      <div class="auth-card">
+        <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+          <button class="auth-tab active" id="tab-signin" role="tab" aria-selected="true" aria-controls="view-signin">Sign in</button>
+          <button class="auth-tab" id="tab-register" role="tab" aria-selected="false" aria-controls="view-register">Create account</button>
+        </div>
+
+        <!-- Sign in -->
+        <section class="auth-view active" id="view-signin" role="tabpanel" aria-labelledby="tab-signin">
+          <h2>Welcome back</h2>
+          <p class="auth-subtitle">Sign in to access your session.</p>
+
+          <form class="auth-form" id="signin-form" novalidate>
+            <div class="field">
+              <label for="signin-email">Email</label>
+              <input type="email" id="signin-email" name="email" autocomplete="email" required />
+              <p class="field-error" id="signin-email-error" hidden></p>
+            </div>
+            <div class="field">
+              <label for="signin-password">Password</label>
+              <div class="input-wrap has-toggle">
+                <input type="password" id="signin-password" name="password" autocomplete="current-password" required />
+                <button type="button" class="input-toggle" data-toggle-for="signin-password" aria-label="Show password">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+                </button>
+              </div>
+              <p class="field-error" id="signin-password-error" hidden></p>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="signin-submit">
+              <span class="spinner"></span>
+              <span class="btn-label">Sign in</span>
+            </button>
+          </form>
+
+          <p class="auth-footer-link">Don't have an account? <a href="#" id="go-to-register">Create account</a></p>
+        </section>
+
+        <!-- Create account -->
+        <section class="auth-view" id="view-register" role="tabpanel" aria-labelledby="tab-register">
+          <h2>Create account</h2>
+          <p class="auth-subtitle">Registers against the live demo API.</p>
+
+          <form class="auth-form" id="register-form" novalidate>
+            <div class="field">
+              <label for="register-name">Name</label>
+              <input type="text" id="register-name" name="name" autocomplete="name" required maxlength="100" />
+              <p class="field-error" id="register-name-error" hidden></p>
+            </div>
+            <div class="field">
+              <label for="register-email">Email</label>
+              <input type="email" id="register-email" name="email" autocomplete="email" required />
+              <p class="field-error" id="register-email-error" hidden></p>
+            </div>
+            <div class="field">
+              <label for="register-password">Password</label>
+              <div class="input-wrap has-toggle">
+                <input type="password" id="register-password" name="password" autocomplete="new-password" required />
+                <button type="button" class="input-toggle" data-toggle-for="register-password" aria-label="Show password">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+                </button>
+              </div>
+              <ul class="req-list" id="password-requirements">
+                <li data-req="length">At least 10 characters</li>
+                <li data-req="upper">One uppercase letter</li>
+                <li data-req="lower">One lowercase letter</li>
+                <li data-req="digit">One digit</li>
+              </ul>
+              <p class="field-error" id="register-password-error" hidden></p>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="register-submit">
+              <span class="spinner"></span>
+              <span class="btn-label">Create account</span>
+            </button>
+          </form>
+
+          <p class="auth-footer-link">Already have an account? <a href="#" id="go-to-signin">Sign in</a></p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="/toast.js"></script>
+  <script src="/api.js"></script>
+  <script src="/login.js"></script>
+</body>
+</html>
