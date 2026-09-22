@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -46,6 +47,14 @@ function createApp() {
   app.use('/health', healthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
+
+  // Serves the same demo UI (login page, dashboard) that runs on Vercel.
+  // `extensions: ['html']` makes clean URLs work the same way Vercel's
+  // `cleanUrls: true` does — a request for /login is resolved against
+  // public/login.html without a redirect. Mounted after the API routes so
+  // it never shadows them, and before notFoundHandler so unmatched static
+  // paths still fall through to a proper 404.
+  app.use(express.static(path.join(__dirname, '../public'), { extensions: ['html'] }));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
