@@ -7,7 +7,7 @@
 # security patches) — moved to node:22-alpine, an actively supported Node
 # LTS release. Only used to produce node_modules for COPY below; this
 # stage's own OS packages are never shipped.
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
