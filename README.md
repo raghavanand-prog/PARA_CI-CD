@@ -336,8 +336,6 @@ proposed, not-yet-run quantitative trial.
 
 **Further reading:**
 - [`docs/research-notes.md`](docs/research-notes.md) — problem statement, hypotheses, methodology, metrics
-- [`docs/research-paper-ieee.pdf`](docs/research-paper-ieee.pdf) — IEEE-style write-up of the above, plus the production incident case study
-- [`docs/project-guide.pdf`](docs/project-guide.pdf) — comprehensive technical reference covering architecture, security gates, AWS infrastructure, deployment, and the full incident log
 - [`docs/threat-model.md`](docs/threat-model.md) — STRIDE-style threat table and supply-chain security notes
 - [`docs/deployment.md`](docs/deployment.md) — exact, reproducible deployment steps for both the AWS pipeline and the Vercel demo
 
