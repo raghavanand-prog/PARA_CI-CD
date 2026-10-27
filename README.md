@@ -1,4 +1,22 @@
-# Secure AWS CI/CD Pipeline with Automated DevSecOps Security Gates
+# Secure AWS CI/CD Pipeline
+
+**An automated delivery pipeline on AWS that refuses to deploy code when security scanners find a problem.**
+
+Why it exists: in many teams, security scans produce reports that nobody acts on. Here the scan results decide: if a check fails, the deployment simply does not happen, and there is no "deploy anyway" button.
+
+How it works in one line: code is pushed → five kinds of security scanner check the code, its dependencies, leaked secrets, the cloud setup and the container → a policy decides → it deploys to AWS only if everything passes.
+
+## Try it
+
+- **Demo API:** open [secure-aws-cicd-demo-api.vercel.app](https://secure-aws-cicd-demo-api.vercel.app) to register, log in and view a profile. This public copy runs the app only, not the security gate.
+- **Run it locally:** `cd app && cp ../.env.example .env`, then `npm install && npm run dev`, then `curl http://localhost:3000/health`.
+- The full AWS deployment runs only while the project is being evaluated, so it may be switched off. See [Live demo](#live-demo) below.
+
+---
+
+## Technical details
+
+Everything below is the full write-up for engineers and reviewers.
 
 A CI/CD pipeline for a small Node.js API where security scanning is an
 **enforced, automated gate** — not a dashboard nobody reads. Five scanner
